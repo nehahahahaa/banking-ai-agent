@@ -49,4 +49,6 @@ export default function Page() {
       </main>
 
       <ChatAssistant language={language} />
-    </
+    </div>
+  );
+}
