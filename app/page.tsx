@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Header } from "@/components/header"
-import { RecommendedCardBanner } from "@/components/recommended-card-banner"
-import { CardComparisonTable } from "@/components/card-comparison-table"
-import { RefinedEligibilityChecker } from "@/components/refined-eligibility-checker"
-import { RefinedFAQSection } from "@/components/refined-faq-section"
-import { ChatAssistant } from "@/components/chat-assistant"
+import { useState } from "react";
+import { Header } from "@/components/header";
+import { RecommendedCardBanner } from "@/components/recommended-card-banner";
+import { CardComparisonTable } from "@/components/card-comparison-table";
+import { RefinedEligibilityChecker } from "@/components/refined-eligibility-checker";
+import { RefinedFAQSection } from "@/components/refined-faq-section";
+import { ChatAssistant } from "@/components/chat-assistant";
 
 export default function BankingAssistant() {
-  const [language, setLanguage] = useState("en")
+  const [language, setLanguage] = useState("en");
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -29,4 +29,11 @@ export default function BankingAssistant() {
               {language === "hi" &&
                 "कार्ड की तुलना करें, पात्रता जांचें, और हमारे AI-संचालित बैंकिंग असिस्टेंट के साथ व्यक्तिगत सिफारिशें प्राप्त करें"}
               {language === "es" &&
-                "Compara tarjetas, verifica elegibilidad y obtén recomendaciones personalizadas con nuestro asiste
+                "Compara tarjetas, verifica elegibilidad y obtén recomendaciones personalizadas con nuestro asistente bancario impulsado por IA"}
+            </p>
+          </div>
+
+          <RecommendedCardBanner language={language} />
+
+          <div id="card-comparison">
+            <CardComparisonTable language={langu
