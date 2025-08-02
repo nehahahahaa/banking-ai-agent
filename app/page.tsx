@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import { useState } from "react";
-import { Header } from "@/components/header";
-import { RecommendedCardBanner } from "@/components/recommended-card-banner";
-import { CardComparisonTable } from "@/components/card-comparison-table";
-import { RefinedEligibilityChecker } from "@/components/refined-eligibility-checker";
-import { RefinedFAQSection } from "@/components/refined-faq-section";
-import { ChatAssistant } from "@/components/chat-assistant";
+import { Header } from "@components/header";
+import { RecommendedCardBanner } from "@components/recommended-card-banner";
+import { CardComparisonTable } from "@components/card-comparison-table";
+import { RefinedEligibilityChecker } from "@components/refined-eligibility-checker";
+import { RefinedFAQSection } from "@components/refined-faq-section";
+import { ChatAssistant } from "@components/chat-assistant";
 
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en");
