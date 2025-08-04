@@ -18,18 +18,6 @@ export function ChatAssistant() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const sampleQuestions = [
-    "Which credit card is best for cashback?",
-    "Can you help me compare savings accounts?",
-    "What documents are required for a home loan?",
-    "How do I improve my credit score?",
-  ]
-
-  const handleSampleClick = (question: string) => {
-    setInput(question)
-    setIsOpen(true)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -50,11 +38,7 @@ export function ChatAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            {
-              role: "system",
-              content:
-                "You are a helpful and professional banking assistant helping users choose the right credit cards, loans, and financial products.",
-            },
+            { role: "system", content: "You are a helpful banking assistant. Answer questions clearly about credit cards, eligibility, and application process." },
             ...messages,
             userMessage,
           ],
@@ -95,44 +79,18 @@ export function ChatAssistant() {
       <Card className="h-[500px] flex flex-col shadow-2xl rounded-2xl">
         <CardHeader className="flex justify-between items-center bg-blue-800 text-white rounded-t-2xl px-4 py-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Bot className="w-5 h-5" /> Banking Assistant <span className="text-xs ml-2">(Mixtral-8x7B)</span>
+            <Bot className="w-5 h-5" /> Banking Assistant
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            className="text-white hover:bg-blue-700"
-          >
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-700">
             <X className="w-4 h-4" />
           </Button>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
-          {messages.length === 0 && (
-            <div className="space-y-2 text-sm text-gray-500">
-              <p className="font-medium text-gray-700">Try asking:</p>
-              {sampleQuestions.map((q, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSampleClick(q)}
-                  className="block text-left text-blue-700 hover:underline"
-                >
-                  • {q}
-                </button>
-              ))}
-            </div>
-          )}
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                  message.role === "user"
-                    ? "bg-blue-800 text-white"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
+            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
+                message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+              }`}>
                 {message.content}
               </div>
             </div>
@@ -143,15 +101,11 @@ export function ChatAssistant() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask your question..."
+            placeholder="Ask about credit cards..."
             className="flex-1"
             disabled={isLoading}
           />
-          <Button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-blue-800 hover:bg-blue-900"
-          >
+          <Button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-800 hover:bg-blue-900">
             <Send className="w-4 h-4" />
           </Button>
         </form>
