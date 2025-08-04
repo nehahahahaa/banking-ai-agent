@@ -28,7 +28,8 @@ export function ChatAssistant() {
       content: input.trim(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
     setInput("")
     setIsLoading(true)
 
@@ -36,7 +37,9 @@ export function ChatAssistant() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input.trim() }),
+        body: JSON.stringify({
+          messages: updatedMessages.map(({ role, content }) => ({ role, content }))
+        }),
       })
 
       const data = await response.json()
