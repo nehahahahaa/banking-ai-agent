@@ -1,123 +1,79 @@
 "use client"
 
 import { useState } from "react"
-import { Send, X, Bot } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-}
-
-interface UserContext {
-  income: number
-  age: number
-  employment: string
-  preference: string | null
-}
+import { Card } from "@/components/ui/card"
+import { cards } from "@/lib/utils/cardsData"
+import { handleChatQuery } from "@/lib/utils/scoreCard"
 
 interface ChatAssistantProps {
-  userContext: UserContext
   language: string
+  userContext: {
+    income: number
+    age: number
+    employment: string
+    preference: string | null
+  }
 }
 
-export function ChatAssistant({ userContext, language }: ChatAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [messages, setMessages] = useState([
+    {
+      from: "bot",
+      text:
+        language === "en"
+          ? "Hi! Need help choosing a card? Ask me anything like 'Which card is best for me?'"
+          : language === "hi"
+          ? "नमस्ते! कौन सा कार्ड आपके लिए सबसे अच्छा है? पूछें।"
+          : "¡Hola! ¿Cuál es la mejor tarjeta para mí? Pregunta lo que necesites.",
+    },
+  ])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading) return
+  const handleSend = () => {
+    if (!input.trim()) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
+    const userMessage = { from: "user", text: input }
+    const botReply = {
+      from: "bot",
+      text: handleChatQuery(input, userContext, cards),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage, botReply])
     setInput("")
-    setIsLoading(true)
-
-    try {
-      const res = await fetch("/api/chat-response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userInput: userMessage.content,
-          userContext,
-        }),
-      })
-
-      const data = await res.json()
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.reply || "Sorry, something went wrong.",
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (err) {
-      console.error("Error talking to agent:", err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (!isOpen) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="w-14 h-14 rounded-full bg-blue-800 hover:bg-blue-900 shadow-lg flex items-center justify-center"
-        >
-          💬
-        </Button>
-      </div>
-    )
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[350px] max-w-[calc(100vw-2rem)]">
-      <Card className="h-[500px] flex flex-col shadow-2xl rounded-2xl">
-        <CardHeader className="flex justify-between items-center bg-blue-800 text-white rounded-t-2xl px-4 py-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Bot className="w-5 h-5" /> Banking Assistant
-          </CardTitle>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-700">
-            <X className="w-4 h-4" />
-          </Button>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
-              }`}>
-                {message.content}
-              </div>
-            </div>
-          ))}
-          {isLoading && <div className="text-sm text-gray-500">Typing...</div>}
-        </CardContent>
-        <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
-          <Input
+    <div className="fixed bottom-4 right-4 w-full max-w-md z-50">
+      <Card className="bg-white shadow-xl rounded-xl p-4 space-y-3 max-h-[500px] overflow-y-auto">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`text-sm p-2 rounded ${
+              msg.from === "bot" ? "bg-blue-50 text-gray-700" : "bg-gray-100 text-gray-800 text-right"
+            }`}
+          >
+            {msg.text}
+          </div>
+        ))}
+        <div className="flex gap-2">
+          <Textarea
+            placeholder={
+              language === "en"
+                ? "Ask me a question..."
+                : language === "hi"
+                ? "मुझसे कोई सवाल पूछें..."
+                : "Hazme una pregunta..."
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about credit cards..."
             className="flex-1"
-            disabled={isLoading}
           />
-          <Button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-800 hover:bg-blue-900">
-            <Send className="w-4 h-4" />
+          <Button onClick={handleSend} className="bg-blue-700 text-white">
+            Send
           </Button>
-        </form>
+        </div>
       </Card>
     </div>
   )
