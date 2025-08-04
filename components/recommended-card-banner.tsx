@@ -1,3 +1,5 @@
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
 import { Lightbulb, Star, ArrowRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
