@@ -19,50 +19,43 @@ export function ChatAssistant() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
+  e.preventDefault()
+  if (!input.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: userMessage.content }),
-      })
-
-      const data = await res.json()
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.reply || "Sorry, I couldn’t find an answer.",
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 2).toString(),
-          role: "assistant",
-          content: "Something went wrong. Please try again later.",
-        },
-      ])
-    } finally {
-      setIsLoading(false)
-    }
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: input.trim(),
   }
+
+  setMessages((prev) => [...prev, userMessage])
+  setInput("")
+  setIsLoading(true)
+  setShowContext(true)
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [...messages, userMessage] }),
+    })
+
+    const data = await response.json()
+
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: data?.message || "Sorry, something went wrong.",
+    }
+
+    setMessages((prev) => [...prev, assistantMessage])
+  } catch (error) {
+    console.error("Error calling backend:", error)
+  } finally {
+    setIsLoading(false)
+    setShowContext(false)
+  }
+}
 
   if (!isOpen) {
     return (
