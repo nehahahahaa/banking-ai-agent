@@ -1,11 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { PaperPlaneIcon } from "@radix-ui/react-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { cards } from "@/lib/utils/cardsData"
-import { handleChatQuery } from "@/lib/utils/scoreCard"
 
 interface ChatAssistantProps {
   language: string
@@ -19,62 +17,44 @@ interface ChatAssistantProps {
 
 export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
   const [input, setInput] = useState("")
-  const [messages, setMessages] = useState([
-    {
-      from: "bot",
-      text:
-        language === "en"
-          ? "Hi! Need help choosing a card? Ask me anything like 'Which card is best for me?'"
-          : language === "hi"
-          ? "नमस्ते! कौन सा कार्ड आपके लिए सबसे अच्छा है? पूछें।"
-          : "¡Hola! ¿Cuál es la mejor tarjeta para mí? Pregunta lo que necesites.",
-    },
-  ])
+  const [response, setResponse] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return
 
-    const userMessage = { from: "user", text: input }
-    const botReply = {
-      from: "bot",
-      text: handleChatQuery(input, userContext, cards),
-    }
+    setLoading(true)
+    setResponse("")
 
-    setMessages((prev) => [...prev, userMessage, botReply])
-    setInput("")
+    try {
+      const res = await fetch("/api/chat-card-agent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userInput: input,
+          userContext
+        })
+      })
+
+      const data = await res.json()
+      setResponse(data.reply)
+    } catch (error) {
+      setResponse("Oops! Something went wrong.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-full max-w-md z-50">
-      <Card className="bg-white shadow-xl rounded-xl p-4 space-y-3 max-h-[500px] overflow-y-auto">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`text-sm p-2 rounded ${
-              msg.from === "bot" ? "bg-blue-50 text-gray-700" : "bg-gray-100 text-gray-800 text-right"
-            }`}
-          >
-            {msg.text}
-          </div>
-        ))}
-        <div className="flex gap-2">
-          <Textarea
-            placeholder={
-              language === "en"
-                ? "Ask me a question..."
-                : language === "hi"
-                ? "मुझसे कोई सवाल पूछें..."
-                : "Hazme una pregunta..."
-            }
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button onClick={handleSend} className="bg-blue-700 text-white">
-            Send
-          </Button>
-        </div>
-      </Card>
-    </div>
-  )
-}
+    <div className="fixed bottom-4 right-4 w-full max-w-sm bg-white shadow-lg rounded-xl p-4 border border-gray-200 z-50">
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">
+        {language === "en" && "Ask me about cards"}
+        {language === "hi" && "मुझसे कार्ड के बारे में पूछें"}
+        {language === "es" && "Pregúntame sobre tarjetas"}
+      </h3>
+
+      <Textarea
+        rows={2}
+        value={in
