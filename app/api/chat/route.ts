@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 })
 
 export async function POST(req: NextRequest) {
@@ -19,9 +19,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error("API Error:", error)
-    return NextResponse.json(
-      { message: "Something went wrong on the server." },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to generate response" }, { status: 500 })
   }
 }
