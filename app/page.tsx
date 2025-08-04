@@ -11,6 +11,14 @@ import { ChatAssistant } from "@/components/chat-assistant"
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
 
+  // ✅ Provide safe default context to prevent undefined error at build time
+  const userContext = {
+    income: 0,
+    age: 0,
+    employment: "",
+    preference: null,
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Header language={language} onLanguageChange={setLanguage} />
@@ -37,7 +45,8 @@ export default function BankingAssistant() {
           <RecommendedCardBanner language={language} />
 
           <div id="card-comparison">
-            <CardComparisonTable language={language} />
+            {/* ✅ Fixed here */}
+            <CardComparisonTable userContext={userContext} />
           </div>
         </section>
 
