@@ -11,6 +11,7 @@ import { ChatAssistant } from "@/components/chat-assistant"
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
 
+  // ✅ Add state for user context
   const [userContext, setUserContext] = useState({
     income: 0,
     age: 0,
@@ -44,12 +45,16 @@ export default function BankingAssistant() {
           <RecommendedCardBanner language={language} />
 
           <div id="card-comparison">
-            <CardComparisonTable language={language} userContext={userContext} />
+            <CardComparisonTable language={language} />
           </div>
         </section>
 
         <section>
-          <RefinedEligibilityChecker language={language} setUserContext={setUserContext} />
+          {/* ✅ Pass userContext and setter */}
+          <RefinedEligibilityChecker
+            language={language}
+            onUpdateUserContext={setUserContext}
+          />
         </section>
 
         <section>
@@ -57,6 +62,7 @@ export default function BankingAssistant() {
         </section>
       </main>
 
+      {/* ✅ Pass userContext to chat */}
       <ChatAssistant language={language} userContext={userContext} />
     </div>
   )
