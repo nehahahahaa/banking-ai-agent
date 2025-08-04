@@ -12,7 +12,7 @@ interface Message {
   content: string
 }
 
-export function ChatAssistant() {
+export function ChatAssistant({ language }: { language: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -33,7 +33,7 @@ export function ChatAssistant() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,11 +41,14 @@ export function ChatAssistant() {
             {
               role: "system",
               content:
-                "You are a helpful banking assistant. Answer questions clearly about credit cards, eligibility, benefits, comparisons, and application process. Use this catalog: Gold Card - $95 fee, 2x travel; Platinum Card - $450 fee, 3x travel + lounge access; Cashback Plus - $0 fee, 2% cashback on groceries. Always explain why a card is recommended based on the user's intent.",
+                "You are a helpful assistant for a banking app. Help users with credit card eligibility, comparison, and application questions only. If the user asks for something unrelated (like loans or account issues), politely redirect them to contact live support.",
             },
             ...messages,
             userMessage,
           ],
+          userContext: {
+            language,
+          },
         }),
       })
 
@@ -54,12 +57,19 @@ export function ChatAssistant() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data?.message || "Sorry, something went wrong.",
+        content: data?.message || "Sorry, I couldn't understand that.",
       }
 
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
-      console.error("Error calling backend:", error)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Something went wrong. Please try again later.",
+        },
+      ])
     } finally {
       setIsLoading(false)
     }
@@ -85,24 +95,40 @@ export function ChatAssistant() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <Bot className="w-5 h-5" /> Banking Assistant
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-700">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            className="text-white hover:bg-blue-700"
+          >
             <X className="w-4 h-4" />
           </Button>
         </CardHeader>
+
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
           {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              key={message.id}
+              className={`flex ${
+                message.role === "user" ? "justify-end" : "justify-start"
+              }`}
+            >
               <div
                 className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                  message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+                  message.role === "user"
+                    ? "bg-blue-800 text-white"
+                    : "bg-gray-100 text-gray-800"
                 }`}
               >
                 {message.content}
               </div>
             </div>
           ))}
-          {isLoading && <div className="text-sm text-gray-500">Typing...</div>}
+          {isLoading && (
+            <div className="text-sm text-gray-500">Typing...</div>
+          )}
         </CardContent>
+
         <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
           <Input
             value={input}
@@ -111,7 +137,11 @@ export function ChatAssistant() {
             className="flex-1"
             disabled={isLoading}
           />
-          <Button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-800 hover:bg-blue-900">
+          <Button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="bg-blue-800 hover:bg-blue-900"
+          >
             <Send className="w-4 h-4" />
           </Button>
         </form>
