@@ -1,9 +1,6 @@
 "use client"
 
 import type React from "react"
-import { cards } from "@/lib/utils/cardsData"
-import { scoreCard } from "@/lib/utils/scoreCard"
-
 import { useState } from "react"
 import { CheckCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import { cards } from "@/utils/cardsData"
-import { scoreCard } from "@/utils/scoreCard"
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
 
 interface RefinedEligibilityCheckerProps {
   language: string
@@ -32,7 +29,6 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
     const ageNum = Number.parseInt(age)
 
     if (incomeNum >= 25000 && ageNum >= 18 && employment) {
-      // Apply scoring logic
       let bestCard = null
       let bestScore = -1
       let bestReasons: string[] = []
@@ -42,7 +38,7 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
           income: incomeNum,
           age: ageNum,
           employment,
-          preference: null, // optionally add later if captured from chat
+          preference: null,
         })
         if (score > bestScore) {
           bestScore = score
