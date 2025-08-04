@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "mistralai/Mixtral-8x7B-Instruct-v0.1", // or another Together model
+        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
         messages,
       }),
     })
@@ -26,5 +26,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
-
-
