@@ -1,48 +1,26 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
-import { Send, Bot, User, Brain, CreditCard, BarChart3, DollarSign } from "lucide-react"
+import { Send, X, Bot, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-interface ChatAssistantProps {
-  language: string
-}
 
 interface Message {
   id: string
   role: "user" | "assistant"
   content: string
-  actionButtons?: ActionButton[]
 }
 
-interface ActionButton {
-  text: string
-  type: "primary" | "secondary"
-  icon?: React.ReactNode
-}
-
-export function ChatAssistant({ language }: ChatAssistantProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        language === "en"
-          ? "Hello! I'm your banking assistant. I can help you find the perfect credit card, answer questions about our products, and guide you through the application process. How can I help you today?"
-          : language === "hi"
-          ? "नमस्ते! मैं आपका बैंकिंग असिस्टेंट हूं। मैं आपको सही क्रेडिट कार्ड खोजने, हमारे उत्पादों के बारे में प्रश्नों के उत्तर देने और आवेदन प्रक्रिया में मार्गदर्शन करने में मदद कर सकता हूं। आज मैं आपकी कैसे मदद कर सकता हूं?"
-          : "¡Hola! Soy tu asistente bancario. Puedo ayudarte a encontrar la tarjeta de crédito perfecta, responder preguntas sobre nuestros productos y guiarte a través del proceso de solicitud. ¿Cómo puedo ayudarte hoy?",
-    },
-  ])
+export function ChatAssistant() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim()) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -54,54 +32,89 @@ export function ChatAssistant({ language }: ChatAssistantProps) {
     setInput("")
     setIsLoading(true)
 
-    // simulate reply
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: userMessage.content }),
+      })
+
+      const data = await res.json()
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: language === "en" ? `Thanks for asking about: "${userMessage.content}". Here's what I suggest...` : "...",
+        content: data.reply || "Sorry, I couldn’t find an answer.",
       }
+
       setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 2).toString(),
+          role: "assistant",
+          content: "Something went wrong. Please try again later.",
+        },
+      ])
+    } finally {
       setIsLoading(false)
-    }, 2000)
+    }
+  }
+
+  if (!isOpen) {
+    return (
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="w-14 h-14 rounded-full bg-blue-800 hover:bg-blue-900 shadow-lg flex items-center justify-center"
+        >
+          💬
+        </Button>
+      </div>
+    )
   }
 
   return (
-    <Card className="w-full max-w-xl mx-auto mt-8 shadow-lg">
-      <CardHeader className="bg-blue-800 text-white rounded-t-lg px-4 py-3">
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="w-5 h-5" />
-          {language === "en" && "Banking Assistant"}
-          {language === "hi" && "बैंकिंग असिस्टेंट"}
-          {language === "es" && "Asistente Bancario"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-4">
-        <div className="h-[300px] overflow-y-auto space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              {msg.role === "assistant" && <Bot className="w-5 h-5 text-blue-800" />}
-              <div className={`p-3 rounded-lg text-sm max-w-[75%] ${msg.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"}`}>
-                {msg.content}
+    <div className="fixed bottom-6 right-6 z-50 w-[350px] max-w-[calc(100vw-2rem)]">
+      <Card className="h-[500px] flex flex-col shadow-2xl rounded-2xl">
+        <CardHeader className="flex justify-between items-center bg-blue-800 text-white rounded-t-2xl px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bot className="w-5 h-5" /> Banking Assistant
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-700">
+            <X className="w-4 h-4" />
+          </Button>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
+          {messages.map((message) => (
+            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
+                message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+              }`}>
+                {message.content}
               </div>
-              {msg.role === "user" && <User className="w-5 h-5 text-gray-500" />}
             </div>
           ))}
           {isLoading && (
-            <div className="text-sm text-gray-400 italic">Typing...</div>
+            <div className="text-sm text-gray-500">Typing...</div>
           )}
-        </div>
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        </CardContent>
+        <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={language === "en" ? "Ask a question..." : "..."}
+            placeholder="Ask your question..."
+            className="flex-1"
+            disabled={isLoading}
           />
-          <Button type="submit" disabled={!input.trim() || isLoading}>
+          <Button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-800 hover:bg-blue-900">
             <Send className="w-4 h-4" />
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   )
 }
