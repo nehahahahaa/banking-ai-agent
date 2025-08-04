@@ -11,13 +11,12 @@ import { ChatAssistant } from "@/components/chat-assistant"
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
 
-  // ✅ Provide safe default context to prevent undefined error at build time
-  const userContext = {
+  const [userContext, setUserContext] = useState({
     income: 0,
     age: 0,
     employment: "",
     preference: null,
-  }
+  })
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -45,13 +44,12 @@ export default function BankingAssistant() {
           <RecommendedCardBanner language={language} />
 
           <div id="card-comparison">
-            {/* ✅ Fixed here */}
-            <CardComparisonTable userContext={userContext} />
+            <CardComparisonTable language={language} userContext={userContext} />
           </div>
         </section>
 
         <section>
-          <RefinedEligibilityChecker language={language} />
+          <RefinedEligibilityChecker language={language} setUserContext={setUserContext} />
         </section>
 
         <section>
@@ -59,7 +57,7 @@ export default function BankingAssistant() {
         </section>
       </main>
 
-      <ChatAssistant language={language} />
+      <ChatAssistant language={language} userContext={userContext} />
     </div>
   )
 }
