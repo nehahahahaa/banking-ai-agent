@@ -1,64 +1,44 @@
 interface Card {
-  name: string;
-  fee: number;
-  rewards: string;
-  perks: string[];
-  minIncome: number;
-  minCreditScore: number;
+  name: string
+  minIncome: number
+  minAge: number
+  allowedEmployment: string[]
+  features: string[]
 }
 
-interface UserContext {
-  income: number;
-  age: number;
-  employment: string;
-  preference: string | null;
+interface UserInputs {
+  income: number
+  age: number
+  employment: string
+  preference: string | null
 }
 
-export function scoreCard(card: Card, user: UserContext) {
-  let score = 0;
-  let reasons: string[] = [];
-
-  if (card.fee === 0) {
-    score += 2;
-    reasons.push("no annual fee");
-  } else if (card.fee < 100) {
-    score += 1;
-    reasons.push("low annual fee");
-  }
-
-  if (user.preference && card.rewards.toLowerCase().includes(user.preference.toLowerCase())) {
-    score += 3;
-    reasons.push(`great for ${user.preference}`);
-  }
+export function scoreCard(card: Card, user: UserInputs) {
+  let score = 0
+  const reasons: string[] = []
 
   if (user.income >= card.minIncome) {
-    score += 2;
-    reasons.push("meets income eligibility");
+    score += 1
+    reasons.push("Income criteria matched")
+  } else {
+    reasons.push("Income below requirement")
   }
 
-  if (user.employment === "student" && card.name.toLowerCase().includes("student")) {
-    score += 2;
-    reasons.push("tailored for students");
+  if (user.age >= card.minAge) {
+    score += 1
+    reasons.push("Age criteria matched")
+  } else {
+    reasons.push("Age below requirement")
   }
 
-  if (user.income >= 100000 && card.perks.includes("airport lounge access")) {
-    score += 1;
-    reasons.push("premium perks for high income");
+  if (card.allowedEmployment.includes(user.employment)) {
+    score += 1
+    reasons.push("Employment type accepted")
+  } else {
+    reasons.push("Employment type not eligible")
   }
 
-  if (user.age < 25 && card.minCreditScore <= 650) {
-    score += 1;
-    reasons.push("good for young applicants");
-  }
+  // Optional: Add scoring for preference match later
 
-  if (user.income >= 50000 && card.minCreditScore <= 700) {
-    score += 1;
-    reasons.push("balanced eligibility");
-  }
-
-  if (user.income >= card.minIncome && user.preference === null) {
-    reasons.push("eligible based on profile");
-  }
-
-  return { score, reasons };
+  return { score, reasons }
 }
