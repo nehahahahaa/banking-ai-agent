@@ -6,14 +6,22 @@ const openai = new OpenAI({
 })
 
 export async function POST(req: NextRequest) {
-  const { message } = await req.json()
+  try {
+    const { messages } = await req.json()
 
-  const chatCompletion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [{ role: "user", content: message }],
-  })
+    const chatCompletion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: messages,
+    })
 
-  return NextResponse.json({
-    reply: chatCompletion.choices[0].message.content,
-  })
+    return NextResponse.json({
+      message: chatCompletion.choices[0].message.content,
+    })
+  } catch (error) {
+    console.error("API Error:", error)
+    return NextResponse.json(
+      { message: "Something went wrong on the server." },
+      { status: 500 }
+    )
+  }
 }
