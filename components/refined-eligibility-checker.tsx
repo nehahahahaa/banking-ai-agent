@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+import { cards } from "@/utils/cardsData"
+import { scoreCard } from "@/utils/scoreCard"
+
 interface RefinedEligibilityCheckerProps {
   language: string
 }
@@ -18,7 +21,7 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
   const [income, setIncome] = useState("")
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("")
-  const [result, setResult] = useState<string | null>(null)
+  const [recommendedCard, setRecommendedCard] = useState<null | { name: string; reasons: string[] }>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,16 +30,35 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
     const ageNum = Number.parseInt(age)
 
     if (incomeNum >= 25000 && ageNum >= 18 && employment) {
-      setResult("eligible")
+      // Apply scoring logic
+      let bestCard = null
+      let bestScore = -1
+      let bestReasons: string[] = []
+
+      for (const card of cards) {
+        const { score, reasons } = scoreCard(card, {
+          income: incomeNum,
+          age: ageNum,
+          employment,
+          preference: null, // optionally add later if captured from chat
+        })
+        if (score > bestScore) {
+          bestScore = score
+          bestCard = card.name
+          bestReasons = reasons
+        }
+      }
+
+      setRecommendedCard({ name: bestCard!, reasons: bestReasons })
     } else {
-      setResult("not-eligible")
+      setRecommendedCard(null)
     }
   }
 
   const getResultCard = () => {
-    if (!result) return null
+    if (!income || !age || !employment) return null
 
-    if (result === "not-eligible") {
+    if (!recommendedCard) {
       return (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-6">
@@ -78,10 +100,15 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
             </div>
             <div>
               <p className="text-lg font-semibold text-gray-900">
-                {language === "en" && "✅ Based on your inputs, you may be eligible for the Platinum Travel Card."}
-                {language === "hi" && "✅ आपके इनपुट के आधार पर, आप प्लैटिनम ट्रैवल कार्ड के लिए पात्र हो सकते हैं।"}
-                {language === "es" && "✅ Basado en tus datos, podrías ser elegible para la Tarjeta Platinum Travel."}
+                ✅ {language === "en" && `Based on your inputs, you may be eligible for the ${recommendedCard.name}.`}
+                {language === "hi" && `✅ आपके इनपुट के आधार पर, आप ${recommendedCard.name} के लिए पात्र हो सकते हैं।`}
+                {language === "es" && `✅ Basado en tus datos, podrías ser elegible para la Tarjeta ${recommendedCard.name}.`}
               </p>
+              <ul className="mt-2 list-disc list-inside text-sm text-gray-700">
+                {recommendedCard.reasons.map((reason, i) => (
+                  <li key={i}>✔ {reason}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </CardContent>
@@ -193,7 +220,7 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
         </CardContent>
       </Card>
 
-      {result && getResultCard()}
+      {getResultCard()}
     </div>
   )
 }
