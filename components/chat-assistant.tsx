@@ -38,7 +38,11 @@ export function ChatAssistant() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            { role: "system", content: "You are a helpful banking assistant. Answer questions clearly about credit cards, eligibility, and application process." },
+            {
+              role: "system",
+              content:
+                "You are a helpful banking assistant. Answer questions clearly about credit cards, eligibility, benefits, comparisons, and application process. Use this catalog: Gold Card - $95 fee, 2x travel; Platinum Card - $450 fee, 3x travel + lounge access; Cashback Plus - $0 fee, 2% cashback on groceries. Always explain why a card is recommended based on the user's intent.",
+            },
             ...messages,
             userMessage,
           ],
@@ -88,9 +92,11 @@ export function ChatAssistant() {
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
-              }`}>
+              <div
+                className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
+                  message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+                }`}
+              >
                 {message.content}
               </div>
             </div>
