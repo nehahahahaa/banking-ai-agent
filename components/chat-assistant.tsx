@@ -44,7 +44,7 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
     setInput("")
     setIsLoading(true)
 
-    // Local agent logic (no backend call)
+    // Use AI agent logic (local scoring logic for now)
     const reply = handleChatQuery(input.trim(), userContext, cards)
 
     const assistantMessage: Message = {
@@ -83,6 +83,7 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
             <X className="w-4 h-4" />
           </Button>
         </CardHeader>
+
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -95,6 +96,7 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
           ))}
           {isLoading && <div className="text-sm text-gray-500">Typing...</div>}
         </CardContent>
+
         <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
           <Input
             value={input}
