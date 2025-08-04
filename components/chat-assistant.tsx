@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Send, X, Bot, User } from "lucide-react"
+import { Send, X, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,44 +19,41 @@ export function ChatAssistant() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  if (!input.trim() || isLoading) return
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
 
-  const userMessage: Message = {
-    id: Date.now().toString(),
-    role: "user",
-    content: input.trim(),
-  }
-
-  setMessages((prev) => [...prev, userMessage])
-  setInput("")
-  setIsLoading(true)
-  setShowContext(true)
-
-  try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [...messages, userMessage] }),
-    })
-
-    const data = await response.json()
-
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: data?.message || "Sorry, something went wrong.",
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input.trim(),
     }
 
-    setMessages((prev) => [...prev, assistantMessage])
-  } catch (error) {
-    console.error("Error calling backend:", error)
-  } finally {
-    setIsLoading(false)
-    setIsOpen(false)
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
 
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      })
+
+      const data = await response.json()
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data?.message || "Sorry, something went wrong.",
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error("Error calling backend:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
-}
 
   if (!isOpen) {
     return (
