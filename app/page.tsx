@@ -11,12 +11,12 @@ import { ChatAssistant } from "@/components/chat-assistant"
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
 
-  // ✅ Add state for user context
+  // Default userContext for ChatAssistant – we'll later sync with eligibility form
   const [userContext, setUserContext] = useState({
-    income: 0,
-    age: 0,
-    employment: "",
-    preference: null,
+    income: 100000, // sample
+    age: 26,
+    employment: "Salaried",
+    preference: null, // future optional field
   })
 
   return (
@@ -41,7 +41,6 @@ export default function BankingAssistant() {
             </p>
           </div>
 
-          {/* Recommended Card Banner */}
           <RecommendedCardBanner language={language} />
 
           <div id="card-comparison">
@@ -50,11 +49,7 @@ export default function BankingAssistant() {
         </section>
 
         <section>
-          {/* ✅ Pass userContext and setter */}
-          <RefinedEligibilityChecker
-            language={language}
-            onUpdateUserContext={setUserContext}
-          />
+          <RefinedEligibilityChecker language={language} onUserContextChange={setUserContext} />
         </section>
 
         <section>
@@ -62,7 +57,6 @@ export default function BankingAssistant() {
         </section>
       </main>
 
-      {/* ✅ Pass userContext to chat */}
       <ChatAssistant language={language} userContext={userContext} />
     </div>
   )
