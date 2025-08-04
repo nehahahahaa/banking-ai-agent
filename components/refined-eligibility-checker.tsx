@@ -1,6 +1,8 @@
 "use client"
 
 import type React from "react"
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
 
 import { useState } from "react"
 import { CheckCircle } from "lucide-react"
