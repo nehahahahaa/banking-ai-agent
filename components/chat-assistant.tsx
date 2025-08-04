@@ -53,7 +53,8 @@ export function ChatAssistant() {
     console.error("Error calling backend:", error)
   } finally {
     setIsLoading(false)
-    setShowContext(false)
+    setIsOpen(false)
+
   }
 }
 
