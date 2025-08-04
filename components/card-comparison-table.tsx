@@ -1,9 +1,9 @@
+"use client"
+
 import { cards } from "@/lib/utils/cardsData"
 import { scoreCard } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
-import { cards } from "@/utils/cardsData"
-import { scoreCard } from "@/utils/scoreCard"
 
 interface CardComparisonTableProps {
   userContext: {
@@ -41,16 +41,16 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           </CardHeader>
           <CardContent className="p-6 space-y-2">
             <p className="text-sm text-gray-700">
-              <strong>Fee:</strong> ${card.fee} / year
+              <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Rewards:</strong> {card.rewards}
+              <strong>Min Income:</strong> ${card.minIncome}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Perks:</strong> {card.perks?.join(", ") || "Standard Benefits"}
+              <strong>Min Age:</strong> {card.minAge}+
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Eligibility:</strong> Income ${card.minIncome}+, Credit Score {card.minCreditScore}+
+              <strong>Employment:</strong> {card.allowedEmployment.join(", ")}
             </p>
             {card.score === bestScore && (
               <div className="mt-4">
