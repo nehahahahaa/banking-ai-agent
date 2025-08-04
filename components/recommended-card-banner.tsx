@@ -3,10 +3,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 interface RecommendedCardBannerProps {
-  language: string
+  language: string,
+  recommendedCard: null | {
+    name: string
+    reasons: string[]
+  }
 }
 
-export function RecommendedCardBanner({ language }: RecommendedCardBannerProps) {
+export function RecommendedCardBanner({ language, recommendedCard }: RecommendedCardBannerProps) {
+  if (!recommendedCard) return null
+
   return (
     <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-lg mb-8">
       <CardContent className="p-6">
@@ -25,16 +31,15 @@ export function RecommendedCardBanner({ language }: RecommendedCardBannerProps) 
                 </span>
               </div>
               <p className="text-lg font-semibold text-gray-900">
-                {language === "en" && "💡 Based on your preferences, we recommend the Platinum Travel Card"}
-                {language === "hi" && "💡 आपकी प्राथमिकताओं के आधार पर, हम प्लैटिनम ट्रैवल कार्ड की सिफारिश करते हैं"}
-                {language === "es" && "💡 Basado en tus preferencias, recomendamos la Tarjeta Platinum Travel"}
+                💡 {language === "en" && `Based on your inputs, we recommend the ${recommendedCard.name}`}
+                {language === "hi" && `💡 आपके इनपुट के आधार पर, हम ${recommendedCard.name} की सिफारिश करते हैं`}
+                {language === "es" && `💡 Basado en tus datos, recomendamos la Tarjeta ${recommendedCard.name}`}
               </p>
-              <p className="text-sm text-gray-600 mt-1">
-                {language === "en" && "Perfect balance of rewards and premium benefits for most users"}
-                {language === "hi" && "अधिकांश उपयोगकर्ताओं के लिए रिवार्ड्स और प्रीमियम लाभों का सही संतुलन"}
-                {language === "es" &&
-                  "Equilibrio perfecto de recompensas y beneficios premium para la mayoría de usuarios"}
-              </p>
+              <ul className="mt-2 list-disc list-inside text-sm text-gray-700">
+                {recommendedCard.reasons.map((reason, i) => (
+                  <li key={i}>✔ {reason}</li>
+                ))}
+              </ul>
             </div>
           </div>
           <div className="hidden sm:block">
