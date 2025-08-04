@@ -1,3 +1,5 @@
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
 import { cards } from "@/utils/cardsData"
