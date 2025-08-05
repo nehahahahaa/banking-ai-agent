@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { handleChatQuery } from "@/lib/utils/scoreCard"
 import { cards } from "@/lib/utils/cardsData"
-import { handleChatQuery } from "@/lib/utils/handleChatQuery";
+
 
 
 interface Message {
