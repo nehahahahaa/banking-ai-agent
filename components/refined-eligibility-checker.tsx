@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cards } from "@/utils/cardsData";
-import { scoreCard } from "@/utils/scoreCard";
+import { scoreCard } from "@/lib/utils/scoreCard";
+import { cards } from "@/lib/utils/cardsData";
+
 
 interface RefinedEligibilityCheckerProps {
   language: string;
