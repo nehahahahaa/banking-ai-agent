@@ -104,9 +104,14 @@ export function RefinedEligibilityChecker({ language, onUserContextChange }: Pro
       </Card>
 
       {submitted && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {eligibleCards.length > 0 ? (
-            eligibleCards.map((card, index) => (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-blue-900">
+            {language === "en" && "Card Recommendations"}
+            {language === "hi" && "कार्ड सिफारिशें"}
+            {language === "es" && "Recomendaciones de Tarjetas"}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {cards.map((card, index) => (
               <Card
                 key={index}
                 className={`border-2 ${card.name === bestCard?.name ? "border-green-600" : "border-gray-300"}`}
@@ -123,14 +128,8 @@ export function RefinedEligibilityChecker({ language, onUserContextChange }: Pro
                   </ul>
                 </CardContent>
               </Card>
-            ))
-          ) : (
-            <Card className="bg-red-50 border-red-200">
-              <CardContent className="p-6">
-                <p className="text-red-600">Sorry, no cards match your profile.</p>
-              </CardContent>
-            </Card>
-          )}
+            ))}
+          </div>
         </div>
       )}
     </section>
