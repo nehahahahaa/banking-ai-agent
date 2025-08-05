@@ -41,16 +41,16 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           </CardHeader>
           <CardContent className="p-6 space-y-2">
             <p className="text-sm text-gray-700">
-              <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
+              <strong>Features:</strong> {card.benefits?.join(", ") || "Standard Benefits"}
             </p>
             <p className="text-sm text-gray-700">
               <strong>Min Income:</strong> ${card.minIncome}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Min Age:</strong> {card.minAge}+
+              <strong>Min Age:</strong> {card.eligibleAges?.[0]}+
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Employment:</strong> {card.allowedEmployment.join(", ")}
+              <strong>Employment:</strong> {card.employmentTypes?.join(", ") || "N/A"}
             </p>
             {card.score === bestScore && (
               <div className="mt-4">
