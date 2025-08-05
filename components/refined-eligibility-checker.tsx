@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, Star } from "lucide-react"
 import { cards } from "@/lib/utils/cardsData"
 import { getBestCards } from "@/lib/utils/scoreCard"
 
@@ -23,6 +23,7 @@ export function RefinedEligibilityChecker({ language, onUserContextChange }: Pro
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("Salaried")
   const [submitted, setSubmitted] = useState(false)
+  const [eligibleCards, setEligibleCards] = useState<any[]>([])
   const [bestCard, setBestCard] = useState<null | any>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,6 +40,7 @@ export function RefinedEligibilityChecker({ language, onUserContextChange }: Pro
 
     const results = getBestCards(cards, context)
     setBestCard(results.length > 0 ? results[0] : null)
+    setEligibleCards(results)
     setSubmitted(true)
   }
 
@@ -102,25 +104,34 @@ export function RefinedEligibilityChecker({ language, onUserContextChange }: Pro
       </Card>
 
       {submitted && (
-        <Card className="bg-green-50 border-green-200">
-          <CardContent className="p-6">
-            {bestCard ? (
-              <>
-                <h3 className="text-green-800 font-semibold flex items-center gap-2 text-lg">
-                  <CheckCircle2 className="text-green-500 w-5 h-5" />
-                  Based on your inputs, you may be eligible for the {bestCard.name}.
-                </h3>
-                <ul className="list-disc list-inside text-gray-700 mt-2 space-y-1">
-                  {bestCard.reasons.map((reason: string, idx: number) => (
-                    <li key={idx}>{reason}</li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-red-600">Sorry, no cards match your profile.</p>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {eligibleCards.length > 0 ? (
+            eligibleCards.map((card, index) => (
+              <Card
+                key={index}
+                className={`border-2 ${card.name === bestCard?.name ? "border-green-600" : "border-gray-300"}`}
+              >
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    {card.name === bestCard?.name && <Star className="text-yellow-500" />}
+                    <h3 className="text-lg font-semibold text-blue-900">{card.name}</h3>
+                  </div>
+                  <ul className="list-disc list-inside text-sm text-gray-700">
+                    {card.reasons.map((reason: string, idx: number) => (
+                      <li key={idx}>{reason}</li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="p-6">
+                <p className="text-red-600">Sorry, no cards match your profile.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </section>
   )
