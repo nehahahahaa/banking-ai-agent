@@ -227,4 +227,3 @@ export function RefinedEligibilityChecker({ language }: RefinedEligibilityChecke
   )
 }
 
-this file find the rrror
