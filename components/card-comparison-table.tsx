@@ -27,7 +27,10 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <h2 className="text-2xl font-bold text-center my-6">Find Your Perfect Credit Card</h2>
+      <p className="text-center text-gray-600 mb-8">Compare cards, check eligibility, and get personalized recommendations with our AI-powered banking assistant</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {scored.map((card) => (
           <Card
             key={card.name}
