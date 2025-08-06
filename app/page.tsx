@@ -1,39 +1,32 @@
 "use client"
 
 import { useState } from "react"
-import { CardComparisonTable } from "@/components/card-comparison-table"
 import { EligibilityForm } from "@/components/refined-eligibility-checker"
-import { EligibilityResult } from "@/components/eligibility-result"
-import { RecommendedCardBanner } from "@/components/recommended-card-banner"
-import { FaqSection } from "@/components/refined-faq-section"
+import { CardComparisonTable } from "@/components/CardComparisonTable"
+import { FAQSection } from "@/components/refined-faq-section"
 
-export default function HomePage() {
-  const [selectedCards, setSelectedCards] = useState([])
-  const [language, setLanguage] = useState("en")
-  const [eligibilityResult, setEligibilityResult] = useState({})
-  const [userContext, setUserContext] = useState(null)
-
-  const handleEligibilityCheck = (result) => {
-    setEligibilityResult(result || {})
-    setSelectedCards(result?.recommendedCards || [])
-    setUserContext(result?.userContext || null)
-  }
+export default function Page() {
+  const [result, setResult] = useState<any>(null)
 
   return (
-    <main className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Banking AI Assistant</h1>
+    <div className="max-w-7xl mx-auto p-6">
+      {/* Card Comparison Table at Top */}
+      <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
 
-      <EligibilityForm onSubmit={handleEligibilityCheck} setLanguage={setLanguage} />
+      {/* Eligibility Form Below Cards */}
+      <div className="mt-10">
+        <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
+      </div>
 
-      {eligibilityResult && Object.keys(eligibilityResult).length > 0 && (
-        <EligibilityResult result={eligibilityResult} language={language} />
-      )}
+      {/* FAQ Section */}
+      <div className="mt-10">
+        <FAQSection />
+      </div>
 
-      <RecommendedCardBanner cards={selectedCards ?? []} language={language} />
-
-      {userContext && <CardComparisonTable userContext={userContext} />}
-
-      <FaqSection language={language} />
-    </main>
+      {/* Floating Chat Assistant Button */}
+      <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
+        Chat with Assistant
+      </div>
+    </div>
   )
 }
