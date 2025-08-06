@@ -2,6 +2,9 @@
 
 import { useState } from "react"
 import { CheckCircle } from "lucide-react"
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -13,24 +16,31 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("")
   const [submitted, setSubmitted] = useState(false)
+  const [recommendedCards, setRecommendedCards] = useState<any[]>([])
+  const [userContext, setUserContext] = useState<any>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitted(true)
 
-    const userContext = {
+    const context = {
       income: Number(income),
       age: Number(age),
       employment,
       preference: null,
     }
 
-    const result = {
-      userContext,
-      recommendedCards: [], // scoring handled externally
-    }
+    const scored = cards.map((card) => {
+      const { score, reasons } = scoreCard(card, context)
+      return { ...card, score, reasons }
+    })
 
-    onSubmit(result)
+    const bestScore = Math.max(...scored.map((c) => c.score))
+    const bestCards = scored.filter((c) => c.score === bestScore)
+
+    setRecommendedCards(bestCards)
+    setUserContext(context)
+    onSubmit({ userContext: context, recommendedCards: bestCards })
   }
 
   return (
@@ -75,7 +85,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               onChange={(e) => setEmployment(e.target.value)}
               required
             >
-              <option value="" disabled>Select Employment Type</option>
+              <option value="" disabled>None</option>
               <option value="salaried">Salaried</option>
               <option value="self-employed">Self-employed</option>
               <option value="student">Student</option>
@@ -91,6 +101,18 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           Check Eligibility
         </button>
       </form>
+
+      {submitted && recommendedCards.length > 0 && (
+        <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
+          <p>Based on your inputs, we recommend the following card(s):</p>
+          <ul className="list-disc list-inside mt-2">
+            {recommendedCards.map((card, i) => (
+              <li key={i}>{card.name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
