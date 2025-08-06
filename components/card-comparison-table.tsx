@@ -4,7 +4,8 @@ import { cards } from "@/lib/utils/cardsData"
 import { scoreCard } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
-import { RecommendedCardBanner } from "@/components/recommended-card-banner"
+import { useState } from "react"
+import { RecommendedCardBanner } from "./recommended-card-banner"
 
 interface CardComparisonTableProps {
   userContext: {
@@ -13,16 +14,23 @@ interface CardComparisonTableProps {
     employment: string
     preference: string | null
   }
+  showResults: boolean
 }
 
-export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
+export function CardComparisonTable({ userContext, showResults }: CardComparisonTableProps) {
+  const [submitted, setSubmitted] = useState(false)
+
   const scored = cards.map((card) => {
     const { score, reasons } = scoreCard(card, userContext)
     return { ...card, score, reasons }
   })
 
   const bestScore = Math.max(...scored.map((c) => c.score))
-  const recommendedCard = scored.find((card) => card.score === 3) // Full match
+  const bestCards = scored.filter((card) => card.score === bestScore && bestScore > 0)
+
+  const handleSubmit = () => {
+    setSubmitted(true)
+  }
 
   return (
     <>
@@ -31,12 +39,12 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           <Card
             key={card.name}
             className={`border-2 ${
-              card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
+              showResults && card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
             } transition-all duration-300`}
           >
             <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
               <div className="flex items-center gap-2">
-                {card.score === bestScore && (
+                {showResults && card.score === bestScore && (
                   <CheckCircle className="w-5 h-5 text-blue-600" />
                 )}
                 <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
@@ -50,12 +58,12 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
                 <strong>Min Income:</strong> ${card.minIncome}
               </p>
               <p className="text-sm text-gray-700">
-                <strong>Min Age:</strong> {card.eligibleAges[0]}+
+                <strong>Min Age:</strong> {card.minAge}+
               </p>
               <p className="text-sm text-gray-700">
-                <strong>Employment:</strong> {card.employmentTypes.join(", ")}
+                <strong>Employment:</strong> {card.allowedEmployment.join(", ")}
               </p>
-              {card.score === bestScore && (
+              {showResults && card.score === bestScore && (
                 <div className="mt-4">
                   <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
@@ -70,10 +78,9 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
         ))}
       </div>
 
-      {/* Green Recommendation Box for Full Match */}
-      {recommendedCard && (
-        <div className="mt-8">
-          <RecommendedCardBanner card={recommendedCard} />
+      {showResults && (
+        <div className="mt-6">
+          <RecommendedCardBanner cards={bestCards} />
         </div>
       )}
     </>
