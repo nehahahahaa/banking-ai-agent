@@ -4,6 +4,7 @@ import { cards } from "@/lib/utils/cardsData"
 import { scoreCard } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
+import { useState } from "react"
 
 interface CardComparisonTableProps {
   userContext: {
@@ -16,55 +17,68 @@ interface CardComparisonTableProps {
 
 export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   const scored = cards.map((card) => {
-    const { score, reasons } = scoreCard(card, userContext)
-    return { ...card, score, reasons }
+    const { score, reasons, fullMatch } = scoreCard(card, userContext)
+    return { ...card, score, reasons, fullMatch }
   })
 
   const bestScore = Math.max(...scored.map((c) => c.score))
+  const bestCards = scored.filter((card) => card.score === bestScore && bestScore > 0)
+  const showResults = true
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {scored.map((card) => (
-        <Card
-          key={card.name}
-          className={`border-2 ${
-            card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
-          } transition-all duration-300`}
-        >
-          <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
-            <div className="flex items-center gap-2">
-              {card.score === bestScore && (
-                <CheckCircle className="w-5 h-5 text-blue-600" />
-              )}
-              <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-2">
-            <p className="text-sm text-gray-700">
-              <strong>Features:</strong> {card.benefits?.join(", ") || "Standard Benefits"}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Min Income:</strong> ${card.minIncome}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Min Age:</strong> {card.eligibleAges?.[0]}+
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Employment:</strong> {card.employmentTypes?.join(", ") || "N/A"}
-            </p>
-            {card.score === bestScore && (
-              <div className="mt-4">
-                <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
-                <ul className="list-disc list-inside text-sm text-gray-600">
-                  {card.reasons.map((r, i) => (
-                    <li key={i}>✔ {r}</li>
-                  ))}
-                </ul>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {scored.map((card) => (
+          <Card
+            key={card.name}
+            className={`border-2 ${
+              showResults && card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
+            } transition-all duration-300`}
+          >
+            <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
+              <div className="flex items-center gap-2">
+                {showResults && card.score === bestScore && (
+                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                )}
+                <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-2">
+              <p className="text-sm text-gray-700">
+                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Min Income:</strong> ${card.minIncome}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Min Age:</strong> {card.minAge}+
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Employment:</strong> {card.allowedEmployment.join(", ")}
+              </p>
+              {showResults && card.score === bestScore && (
+                <div className="mt-4">
+                  <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-600">
+                    {card.reasons.map((r, i) => (
+                      <li key={i}>✔ {r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {bestCards.length > 0 && bestCards[0] && (
+        <div className="mt-6 bg-green-100 border border-green-400 text-green-800 p-4 rounded-xl">
+          <p className="font-semibold mb-1">
+            Based on your inputs, you may be eligible for the {bestCards[0].name}.
+          </p>
+          <p className="text-sm text-gray-700">🧠 Transparent + choice-driven</p>
+        </div>
+      )}
+    </>
   )
 }
