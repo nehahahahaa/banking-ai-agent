@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CardComparisonPanel } from "@/components/card-comparison-table"
+import { CardComparisonTable } from "@/components/card-comparison-table"
 import { EligibilityForm } from "@/components/refined-eligibility-checker"
 import { EligibilityResult } from "@/components/eligibility-result"
 import { RecommendedCardBanner } from "@/components/recommended-card-banner"
@@ -11,10 +11,12 @@ export default function HomePage() {
   const [selectedCards, setSelectedCards] = useState([])
   const [language, setLanguage] = useState("en")
   const [eligibilityResult, setEligibilityResult] = useState({})
+  const [userContext, setUserContext] = useState(null)
 
   const handleEligibilityCheck = (result) => {
     setEligibilityResult(result || {})
     setSelectedCards(result?.recommendedCards || [])
+    setUserContext(result?.userContext || null)
   }
 
   return (
@@ -29,7 +31,7 @@ export default function HomePage() {
 
       <RecommendedCardBanner cards={selectedCards ?? []} language={language} />
 
-      <CardComparisonPanel cards={selectedCards ?? []} />
+      {userContext && <CardComparisonTable userContext={userContext} />}
 
       <FaqSection language={language} />
     </main>
