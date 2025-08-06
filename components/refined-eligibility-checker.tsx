@@ -12,9 +12,11 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   const [income, setIncome] = useState("")
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitted(true)
 
     const userContext = {
       income: Number(income),
@@ -25,7 +27,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const result = {
       userContext,
-      recommendedCards: [], // scoring handled elsewhere
+      recommendedCards: [],
     }
 
     onSubmit(result)
