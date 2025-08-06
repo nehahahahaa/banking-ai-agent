@@ -1,63 +1,37 @@
 "use client"
 
 import { useState } from "react"
-import { Header } from "@/components/header"
-import { RecommendedCardBanner } from "@/components/recommended-card-banner"
-import { CardComparisonTable } from "@/components/card-comparison-table"
-import { RefinedEligibilityChecker } from "@/components/refined-eligibility-checker"
-import { RefinedFAQSection } from "@/components/refined-faq-section"
-import { EligibilityResult } from "@/components/eligibility-result"
-import { ChatAssistant } from "@/components/chat-assistant"
+import { CardComparisonPanel } from "@/components/CardComparisonPanel"
+import { EligibilityForm } from "@/components/EligibilityForm"
+import { EligibilityResult } from "@/components/EligibilityResult"
+import { RecommendedCardBanner } from "@/components/RecommendedCardBanner"
+import { FaqSection } from "@/components/FaqSection"
 
-export default function BankingAssistant() {
+export default function HomePage() {
+  const [selectedCards, setSelectedCards] = useState([])
   const [language, setLanguage] = useState("en")
+  const [eligibilityResult, setEligibilityResult] = useState({})
 
-  const userContext = {
-    income: 0,
-    age: 0,
-    employment: "",
-    preference: null,
+  const handleEligibilityCheck = (result) => {
+    setEligibilityResult(result || {})
+    setSelectedCards(result?.recommendedCards || [])
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header language={language} onLanguageChange={setLanguage} />
+    <main className="p-6 max-w-5xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Banking AI Assistant</h1>
 
-      <main className="container mx-auto px-4 py-8 space-y-12">
-        <section>
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-blue-800 mb-4">
-              {language === "en" && "Find Your Perfect Credit Card"}
-              {language === "hi" && "अपना सही क्रेडिट कार्ड खोजें"}
-              {language === "es" && "Encuentra Tu Tarjeta de Crédito Perfecta"}
-            </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {language === "en" &&
-                "Compare cards, check eligibility, and get personalized recommendations with our AI-powered banking assistant"}
-              {language === "hi" &&
-                "कार्ड की तुलना करें, पात्रता जांचें, और हमारे AI-संचालित बैंकिंग असिस्टेंट के साथ व्यक्तिगत सिफारिशें प्राप्त करें"}
-              {language === "es" &&
-                "Compara tarjetas, verifica elegibilidad y obtén recomendaciones personalizadas con nuestro asistente bancario impulsado por IA"}
-            </p>
-          </div>
+      <EligibilityForm onSubmit={handleEligibilityCheck} setLanguage={setLanguage} />
 
-          <RecommendedCardBanner cards={[]} language={language} />
+      {eligibilityResult && Object.keys(eligibilityResult).length > 0 && (
+        <EligibilityResult result={eligibilityResult} language={language} />
+      )}
 
-          <div id="card-comparison">
-            <CardComparisonTable userContext={userContext} />
-          </div>
-        </section>
+      <RecommendedCardBanner cards={selectedCards ?? []} language={language} />
 
-        <section>
-          <RefinedEligibilityChecker language={language} />
-        </section>
+      <CardComparisonPanel cards={selectedCards ?? []} />
 
-        <section>
-          <RefinedFAQSection language={language} />
-        </section>
-      </main>
-
-      <ChatAssistant language={language} />
-    </div>
+      <FaqSection language={language} />
+    </main>
   )
 }
