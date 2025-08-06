@@ -11,7 +11,7 @@ interface EligibilityFormProps {
 export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps) {
   const [income, setIncome] = useState("")
   const [age, setAge] = useState("")
-  const [employment, setEmployment] = useState("salaried")
+  const [employment, setEmployment] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,6 +50,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               className="mt-1 block w-full p-2 border border-gray-300 rounded"
               value={income}
               onChange={(e) => setIncome(e.target.value)}
+              placeholder="Please enter your income"
               required
             />
           </div>
@@ -60,6 +61,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               className="mt-1 block w-full p-2 border border-gray-300 rounded"
               value={age}
               onChange={(e) => setAge(e.target.value)}
+              placeholder="Please enter your age"
               required
             />
           </div>
@@ -69,7 +71,9 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               className="mt-1 block w-full p-2 border border-gray-300 rounded"
               value={employment}
               onChange={(e) => setEmployment(e.target.value)}
+              required
             >
+              <option value="" disabled>Select Employment Type</option>
               <option value="salaried">Salaried</option>
               <option value="self-employed">Self-employed</option>
               <option value="student">Student</option>
