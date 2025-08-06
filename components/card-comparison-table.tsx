@@ -1,79 +1,96 @@
 "use client"
 
-import { cards } from "@/lib/utils/cardsData"
-import { scoreCard } from "@/lib/utils/scoreCard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
 import { CheckCircle } from "lucide-react"
 
-interface CardComparisonTableProps {
-  userContext: {
-    income: number
-    age: number
-    employment: string
-    preference: string | null
-  }
+interface EligibilityFormProps {
+  onSubmit: (result: any) => void
+  setLanguage: (lang: string) => void
 }
 
-export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
-  const scored = cards.map((card) => {
-    const { score, reasons } = scoreCard(card, userContext)
-    return { ...card, score, reasons }
-  })
+export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps) {
+  const [income, setIncome] = useState("")
+  const [age, setAge] = useState("")
+  const [employment, setEmployment] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
-  const bestScore = Math.max(...scored.map((c) => c.score))
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitted(true)
+
+    const userContext = {
+      income: Number(income),
+      age: Number(age),
+      employment,
+      preference: null,
+    }
+
+    const result = {
+      userContext,
+      recommendedCards: [], // scoring handled externally
+    }
+
+    onSubmit(result)
+  }
 
   return (
-    <>
-      <div className="text-center mt-10">
-        <h1 className="text-3xl font-bold text-blue-800">Find Your Perfect Credit Card</h1>
-        <p className="mt-2 text-gray-600">
-          Compare cards, check eligibility, and get personalized recommendations with our AI-powered banking assistant
-        </p>
+    <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 mb-2 text-green-700">
+        <CheckCircle className="w-5 h-5" />
+        <h2 className="text-md font-semibold">Check Your Eligibility</h2>
       </div>
+      <p className="text-sm text-gray-600 mb-6">
+        Get personalized card recommendations in just a few steps
+      </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-        {scored.map((card) => (
-          <Card
-            key={card.name}
-            className={`border-2 ${
-              card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
-            } transition-all duration-300 rounded-xl`}
-          >
-            <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
-              <div className="flex items-center gap-2">
-                {card.score === bestScore && (
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                )}
-                <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-2">
-              <p className="text-sm text-gray-700">
-                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Min Income:</strong> ${card.minIncome}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Min Age:</strong> {card.minAge}+
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Employment:</strong> {card.allowedEmployment?.join(", ")}
-              </p>
-              {card.score === bestScore && card.reasons?.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
-                  <ul className="list-disc list-inside text-sm text-gray-600">
-                    {card.reasons.map((r, i) => (
-                      <li key={i}>✓ {r}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Monthly Income (USD)</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              placeholder="Please enter your income"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Your Age</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder="Please enter your age"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Employment Type</label>
+            <select
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={employment}
+              onChange={(e) => setEmployment(e.target.value)}
+              required
+            >
+              <option value="" disabled>Select Employment Type</option>
+              <option value="salaried">Salaried</option>
+              <option value="self-employed">Self-employed</option>
+              <option value="student">Student</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="mt-6 w-full bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
+        >
+          Check Eligibility
+        </button>
+      </form>
+    </div>
   )
 }
