@@ -1,11 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { CardComparisonPanel } from "@/components/card-comparison-table"
 import { EligibilityForm } from "@/components/refined-eligibility-checker"
 import { EligibilityResult } from "@/components/eligibility-result"
 import { RecommendedCardBanner } from "@/components/recommended-card-banner"
 import { FaqSection } from "@/components/refined-faq-section"
-
 
 export default function HomePage() {
   const [selectedCards, setSelectedCards] = useState([])
