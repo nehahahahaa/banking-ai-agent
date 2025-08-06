@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { CheckCircle } from "lucide-react"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -11,7 +12,6 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   const [income, setIncome] = useState("")
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("salaried")
-  const [preference, setPreference] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,67 +20,71 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
       income: Number(income),
       age: Number(age),
       employment,
-      preference: preference || null,
+      preference: null,
     }
 
     const result = {
       userContext,
-      recommendedCards: [], // scoring handled in CardComparisonTable
+      recommendedCards: [], // scoring handled elsewhere
     }
 
     onSubmit(result)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Monthly Income ($)</label>
-        <input
-          type="number"
-          className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          value={income}
-          onChange={(e) => setIncome(e.target.value)}
-          required
-        />
+    <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 mb-2 text-green-700">
+        <CheckCircle className="w-5 h-5" />
+        <h2 className="text-md font-semibold">Check Your Eligibility</h2>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Age</label>
-        <input
-          type="number"
-          className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          value={age}
-          onChange={(e) => setAge(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Employment Type</label>
-        <select
-          className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          value={employment}
-          onChange={(e) => setEmployment(e.target.value)}
+      <p className="text-sm text-gray-600 mb-6">
+        Get personalized card recommendations in just a few steps
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Monthly Income (USD)</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Your Age</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Employment Type</label>
+            <select
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={employment}
+              onChange={(e) => setEmployment(e.target.value)}
+            >
+              <option value="salaried">Salaried</option>
+              <option value="self-employed">Self-employed</option>
+              <option value="student">Student</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="mt-6 w-full bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
         >
-          <option value="salaried">Salaried</option>
-          <option value="self-employed">Self-employed</option>
-          <option value="student">Student</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Card Preference (optional)</label>
-        <input
-          type="text"
-          placeholder="e.g., travel, cashback"
-          className="mt-1 block w-full p-2 border border-gray-300 rounded"
-          value={preference}
-          onChange={(e) => setPreference(e.target.value)}
-        />
-      </div>
-      <button
-        type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        Check Eligibility
-      </button>
-    </form>
+          Check Eligibility
+        </button>
+      </form>
+    </div>
   )
 }
