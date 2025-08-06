@@ -8,7 +8,7 @@ import { RefinedEligibilityChecker } from "@/components/refined-eligibility-chec
 import { RefinedFAQSection } from "@/components/refined-faq-section"
 import { ChatAssistant } from "@/components/chat-assistant"
 import { EligibilityResult } from "@/components/eligibility-result"
-import cards from "@/lib/utils/cardsData"
+import { cards } from "@/lib/utils/cardsData";
 import { scoreCard } from "@/lib/utils/scoreCard"
 
 export default function BankingAssistant() {
