@@ -9,7 +9,8 @@ import { RefinedFAQSection } from "@/components/refined-faq-section"
 import { ChatAssistant } from "@/components/chat-assistant"
 import { EligibilityResult } from "@/components/eligibility-result"
 import { scoreCard } from "@/lib/utils/scoreCard"
-import cards from "@/data/cards.json"
+import { cards } from "@/lib/utils/cardsData"
+
 
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
