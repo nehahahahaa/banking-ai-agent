@@ -34,3 +34,11 @@ export const scoreCard = (card: Card, user: UserInfo): { score: number; reasons:
 
   return { score, reasons };
 };
+
+export const handleChatQuery = async (input: any) => {
+  // Example logic for processing the input, replace with real logic
+  return {
+    message: 'Recommendation logic not yet implemented.',
+    input,
+  };
+};
