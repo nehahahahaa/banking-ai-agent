@@ -1,41 +1,37 @@
 "use client"
 
-import { CheckCircle2 } from "lucide-react"
+import { useState } from "react"
+import { CardComparisonPanel } from "@/components/CardComparisonPanel"
+import { EligibilityForm } from "@/components/EligibilityForm"
+import { EligibilityResult } from "@/components/EligibilityResult"
+import { RecommendedCardBanner } from "@/components/RecommendedCardBanner"
+import { FaqSection } from "@/components/FaqSection"
 
-interface Card {
-  name: string
-  reasons: string[]
-}
+export default function HomePage() {
+  const [selectedCards, setSelectedCards] = useState([])
+  const [language, setLanguage] = useState("en")
+  const [eligibilityResult, setEligibilityResult] = useState({})
 
-interface Props {
-  cards: Card[]
-}
-
-export function RecommendedCardBanner({ cards }: Props) {
-  if (cards.length === 0) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6 mt-4">
-        <div className="font-semibold mb-1 flex items-center gap-2">
-          ❌ Not Eligible Currently
-        </div>
-        <p className="text-sm">
-          You may not qualify for our current offers. Please contact us for alternative options.
-        </p>
-      </div>
-    )
+  const handleEligibilityCheck = (result) => {
+    setEligibilityResult(result || {})
+    setSelectedCards(result?.recommendedCards || [])
   }
 
   return (
-    <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl p-6 mt-4">
-      <div className="font-semibold mb-1 flex items-center gap-2">
-        ✅ Based on your inputs, you may be eligible for the <strong>{cards[0]?.name}</strong>.
-      </div>
-      <ul className="list-disc list-inside text-sm mt-2 text-green-700">
-        {cards[0]?.reasons?.map((reason, i) => (
-          <li key={i}>✓ {reason}</li>
-        ))}
-      </ul>
-      <p className="mt-4 text-sm">🧠 This way we are building trust by showing logic clearly to users.</p>
-    </div>
+    <main className="p-6 max-w-5xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Banking AI Assistant</h1>
+
+      <EligibilityForm onSubmit={handleEligibilityCheck} setLanguage={setLanguage} />
+
+      {Object.keys(eligibilityResult || {}).length > 0 && (
+        <EligibilityResult result={eligibilityResult} language={language} />
+      )}
+
+      <RecommendedCardBanner cards={selectedCards || []} language={language} />
+
+      <CardComparisonPanel cards={selectedCards || []} />
+
+      <FaqSection language={language} />
+    </main>
   )
 }
