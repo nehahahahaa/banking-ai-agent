@@ -1,39 +1,36 @@
 "use client"
 
-import { Accordion, AccordionItem } from "@/components/ui/accordion"
+interface FaqSectionProps {
+  language: string
+}
 
-export function FaqSection({ language }) {
+export function FaqSection({ language }: FaqSectionProps) {
+  const faqs = [
+    {
+      q: "What happens if I miss a payment?",
+      a: "Missing a payment may incur a fee and affect your credit score.",
+    },
+    {
+      q: "Are there foreign transaction fees?",
+      a: "Some cards charge 1–3%. Look for cards labeled as 'no foreign fee'.",
+    },
+    {
+      q: "Can I upgrade my card later?",
+      a: "Yes, many banks allow upgrades based on usage and payment history.",
+    },
+  ]
+
   return (
     <div className="mt-10">
-      <h2 className="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="q1" className="border-b">
-          <Accordion.Trigger className="py-3 text-left font-medium w-full">
-            What happens if I miss a payment?
-          </Accordion.Trigger>
-          <Accordion.Content className="pb-4 text-gray-700">
-            Missing a payment may incur late fees and impact your credit score.
-          </Accordion.Content>
-        </AccordionItem>
-
-        <AccordionItem value="q2" className="border-b">
-          <Accordion.Trigger className="py-3 text-left font-medium w-full">
-            Are there foreign transaction fees?
-          </Accordion.Trigger>
-          <Accordion.Content className="pb-4 text-gray-700">
-            Some cards may charge up to 3% on international purchases.
-          </Accordion.Content>
-        </AccordionItem>
-
-        <AccordionItem value="q3" className="border-b">
-          <Accordion.Trigger className="py-3 text-left font-medium w-full">
-            Can I upgrade my card later?
-          </Accordion.Trigger>
-          <Accordion.Content className="pb-4 text-gray-700">
-            Yes, many cards allow upgrades after demonstrating consistent use.
-          </Accordion.Content>
-        </AccordionItem>
-      </Accordion>
+      <h2 className="text-xl font-bold mb-4">FAQs</h2>
+      <div className="space-y-3">
+        {faqs.map((faq, idx) => (
+          <details key={idx} className="border rounded-md p-3 bg-gray-50">
+            <summary className="font-medium cursor-pointer">{faq.q}</summary>
+            <p className="mt-2 text-sm text-gray-700">{faq.a}</p>
+          </details>
+        ))}
+      </div>
     </div>
   )
 }
