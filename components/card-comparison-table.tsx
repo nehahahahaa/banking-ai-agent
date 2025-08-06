@@ -85,7 +85,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               onChange={(e) => setEmployment(e.target.value)}
               required
             >
-              <option value="" disabled>None</option>
+              <option value="" disabled>Select Employment Type</option>
               <option value="salaried">Salaried</option>
               <option value="self-employed">Self-employed</option>
               <option value="student">Student</option>
@@ -113,6 +113,15 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           </ul>
         </div>
       )}
+    </div>
+  )
+}
+
+export function CardComparisonTable({ userContext }: { userContext: any }) {
+  return (
+    <div className="bg-gray-50 p-6 rounded-xl shadow-md">
+      <h3 className="text-lg font-semibold mb-4">Card Comparison</h3>
+      <p>User Context: {JSON.stringify(userContext)}</p>
     </div>
   )
 }
