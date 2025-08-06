@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { cards } from "@/lib/utils/cardsData"
+import { scoreCard } from "@/lib/utils/scoreCard"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -23,9 +25,19 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
       preference,
     }
 
+    const scoredCards = cards.map((card) => {
+      const { score, reasons } = scoreCard(card, userContext)
+      return { ...card, score, reasons }
+    })
+
+    const bestScore = Math.max(...scoredCards.map((c) => c.score))
+    const recommendedCards = scoredCards.filter(
+      (card) => card.score === bestScore && bestScore > 0
+    )
+
     const result = {
       userContext,
-      recommendedCards: [], // Can be filled after scoring logic
+      recommendedCards,
     }
 
     onSubmit(result)
@@ -66,7 +78,9 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Card Preference (optional)</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Card Preference (optional)
+        </label>
         <input
           type="text"
           placeholder="e.g., travel, cashback"
