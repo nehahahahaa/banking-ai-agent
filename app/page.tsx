@@ -10,20 +10,32 @@ export default function Page() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <div className="mt-10">
-        <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
+      {/* Heading */}
+      <div className="text-center mt-10">
+        <h1 className="text-3xl font-bold text-blue-800">Find Your Perfect Credit Card</h1>
+        <p className="mt-2 text-gray-600">
+          Compare cards, check eligibility, and get personalized recommendations with our AI-powered banking assistant
+        </p>
       </div>
 
-      {result && (
+      {/* Show comparison table after eligibility is checked */}
+      {result?.userContext && (
         <div className="mt-10">
           <CardComparisonTable userContext={result.userContext} />
         </div>
       )}
 
+      {/* Eligibility Form */}
+      <div className="mt-10">
+        <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
+      </div>
+
+      {/* FAQ Section */}
       <div className="mt-10">
         <FaqSection language="en" />
       </div>
 
+      {/* Floating Chat */}
       <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
         Chat with Assistant
       </div>
