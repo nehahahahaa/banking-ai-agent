@@ -1,37 +1,41 @@
 "use client"
 
-import { useState } from "react"
-import { CardComparisonPanel } from "@/components/CardComparisonPanel"
-import { EligibilityForm } from "@/components/EligibilityForm"
-import { EligibilityResult } from "@/components/EligibilityResult"
-import { RecommendedCardBanner } from "@/components/RecommendedCardBanner"
-import { FaqSection } from "@/components/FaqSection"
+import { BadgeCheck } from "lucide-react"
 
-export default function HomePage() {
-  const [selectedCards, setSelectedCards] = useState([])
-  const [language, setLanguage] = useState("en")
-  const [eligibilityResult, setEligibilityResult] = useState({})
+interface RecommendedCardBannerProps {
+  cards: {
+    name: string
+    score: number
+    reasons: string[]
+  }[]
+  language: string
+}
 
-  const handleEligibilityCheck = (result) => {
-    setEligibilityResult(result || {})
-    setSelectedCards(result?.recommendedCards || [])
-  }
+export function RecommendedCardBanner({
+  cards,
+  language,
+}: RecommendedCardBannerProps) {
+  if (!cards || cards.length === 0) return null
+
+  const bestCard = cards[0] // Assuming the best is always first in the list
 
   return (
-    <main className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Banking AI Assistant</h1>
-
-      <EligibilityForm onSubmit={handleEligibilityCheck} setLanguage={setLanguage} />
-
-      {Object.keys(eligibilityResult || {}).length > 0 && (
-        <EligibilityResult result={eligibilityResult} language={language} />
-      )}
-
-      <RecommendedCardBanner cards={selectedCards || []} language={language} />
-
-      <CardComparisonPanel cards={selectedCards || []} />
-
-      <FaqSection language={language} />
-    </main>
+    <div className="bg-green-50 border border-green-300 p-4 rounded-lg my-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <BadgeCheck className="w-5 h-5 text-green-600" />
+        <p className="text-green-800 font-semibold text-sm">
+          Based on your inputs, you may be eligible for the{" "}
+          <span className="font-bold">{bestCard.name}</span>.
+        </p>
+      </div>
+      <ul className="list-disc list-inside text-sm text-gray-700 ml-6">
+        {bestCard.reasons.map((reason, index) => (
+          <li key={index}>✔ {reason}</li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-green-700 italic">
+        🧠 Builds trust by showing logic clearly · Transparent + choice-driven
+      </p>
+    </div>
   )
 }
