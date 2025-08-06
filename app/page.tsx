@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { EligibilityForm } from "@/components/refined-eligibility-checker"
-import { CardComparisonTable } from "@/components/card-comparison-table"
+import { EligibilityForm } from "@/components/card-comparison-table"
 import { FaqSection } from "@/components/refined-faq-section"
 
 export default function Page() {
