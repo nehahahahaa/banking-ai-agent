@@ -8,40 +8,31 @@ import { RefinedEligibilityChecker } from "@/components/refined-eligibility-chec
 import { RefinedFAQSection } from "@/components/refined-faq-section"
 import { ChatAssistant } from "@/components/chat-assistant"
 import { EligibilityResult } from "@/components/eligibility-result"
+import cards from "@/lib/utils/cardsData"
 import { scoreCard } from "@/lib/utils/scoreCard"
-import { cards } from "@/lib/utils/cardsData"
-
 
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
-  const [bestMatchedCard, setBestMatchedCard] = useState(null)
-  const [matchingReasons, setMatchingReasons] = useState<string[]>([])
 
-  // ✅ Provide safe default context to prevent undefined error at build time
+  // Default user context
   const userContext = {
-    income: 80000,
+    income: 50000, // You can connect this to actual user input later
     age: 30,
-    employment: "Salaried",
+    employment: "salaried",
     preference: null,
   }
 
-  const evaluateEligibility = () => {
-    let topCard = null
-    let topScore = 0
-    let reasons: string[] = []
-
-    cards.forEach((card: any) => {
-      const { score, reasons: r } = scoreCard(card, userContext)
-      if (score > topScore) {
-        topCard = card
-        topScore = score
-        reasons = r
-      }
+  // Score cards and filter top eligible ones
+  const scoredCards = cards
+    .map(card => {
+      const { score, reasons } = scoreCard(card, userContext)
+      return { ...card, score, reasons }
     })
+    .filter(c => c.score >= 2)
+    .sort((a, b) => b.score - a.score)
 
-    setBestMatchedCard(topCard)
-    setMatchingReasons(reasons)
-  }
+  const bestMatchedCard = scoredCards[0] || null
+  const matchingReasons = bestMatchedCard ? bestMatchedCard.reasons : []
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -65,8 +56,8 @@ export default function BankingAssistant() {
             </p>
           </div>
 
-          {/* Recommended Card Banner */}
-          <RecommendedCardBanner language={language} />
+          {/* ✅ Show recommended card with reasons */}
+          <RecommendedCardBanner cards={scoredCards} language={language} />
 
           <div id="card-comparison">
             <CardComparisonTable userContext={userContext} />
@@ -74,14 +65,8 @@ export default function BankingAssistant() {
         </section>
 
         <section>
-          <RefinedEligibilityChecker language={language} onCheckEligibility={evaluateEligibility} />
+          <RefinedEligibilityChecker language={language} />
         </section>
-
-        {bestMatchedCard && (
-          <section>
-            <EligibilityResult selectedCard={bestMatchedCard} reasons={matchingReasons} />
-          </section>
-        )}
 
         <section>
           <RefinedFAQSection language={language} />
