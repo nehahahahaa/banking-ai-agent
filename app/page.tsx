@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { EligibilityForm } from "@/components/refined-eligibility-checker"
-import { EligibilityForm } from "@/components/card-comparison-table"
+import { EligibilityForm } from "@/components/card-comparison-table" // ✅ Use only this
+import { CardComparisonTable } from "@/components/card-comparison-table"
 import { FaqSection } from "@/components/refined-faq-section"
 
 export default function Page() {
@@ -10,7 +10,14 @@ export default function Page() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
+      <CardComparisonTable
+        userContext={result?.userContext || {
+          income: 0,
+          age: 0,
+          employment: '',
+          preference: null,
+        }}
+      />
 
       <div className="mt-10">
         <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
