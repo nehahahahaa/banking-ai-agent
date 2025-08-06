@@ -1,36 +1,39 @@
-// ✅ Path: components/recommended-card-banner.tsx
-
 "use client"
 
-import { Card } from "@/lib/utils/scoreCard"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle2 } from "lucide-react"
 
-interface RecommendedCardBannerProps {
-  selectedCard: Card | null
+interface Card {
+  name: string
   reasons: string[]
 }
 
-export function RecommendedCardBanner({ selectedCard, reasons }: RecommendedCardBannerProps) {
-  if (!selectedCard) return null
+interface Props {
+  cards: Card[]
+}
+
+export function RecommendedCardBanner({ cards }: Props) {
+  if (cards.length === 0) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6 mt-4">
+        <div className="font-semibold mb-1 flex items-center gap-2">
+          ❌ Not Eligible Currently
+        </div>
+        <p className="text-sm">You may not qualify for our current offers. Please contact us for alternative options.</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="bg-green-50 border border-green-300 rounded-xl p-6 mt-6 text-sm text-gray-800 shadow-sm space-y-3">
-      <div className="flex items-center gap-2">
-        <CheckCircle className="text-green-600 w-5 h-5" />
-        <p className="font-semibold">
-          Based on your inputs, you may be eligible for the <strong>{selectedCard.name}</strong>.
-        </p>
+    <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl p-6 mt-4">
+      <div className="font-semibold mb-1 flex items-center gap-2">
+        ✅ Based on your inputs, you may be eligible for the <strong>{cards[0].name}</strong>.
       </div>
-
-      <ul className="list-disc list-inside text-sm pl-1 text-gray-700">
-        {reasons.map((reason, i) => (
+      <ul className="list-disc list-inside text-sm mt-2 text-green-700">
+        {cards[0].reasons.map((reason, i) => (
           <li key={i}>✓ {reason}</li>
         ))}
       </ul>
-
-      <p className="text-green-600 font-medium pt-1">
-        ✅ Transparent + choice-driven
-      </p>
+      <p className="mt-4 text-sm">🧠 This way we are building trust by showing logic clearly to users.</p>
     </div>
   )
 }
