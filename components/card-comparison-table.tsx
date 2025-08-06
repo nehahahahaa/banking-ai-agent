@@ -23,7 +23,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   const bestScore = Math.max(...scored.map((c) => c.score))
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
       {scored.map((card) => (
         <Card
           key={card.name}
@@ -41,16 +41,16 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           </CardHeader>
           <CardContent className="p-6 space-y-2">
             <p className="text-sm text-gray-700">
-              <strong>Features:</strong> {card.benefits?.join(", ") || "Standard Benefits"}
+              <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
             </p>
             <p className="text-sm text-gray-700">
               <strong>Min Income:</strong> ${card.minIncome}
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Eligible Ages:</strong> {card.eligibleAges[0]}–{card.eligibleAges[1]}
+              <strong>Min Age:</strong> {card.minAge}+
             </p>
             <p className="text-sm text-gray-700">
-              <strong>Employment:</strong> {card.employmentTypes.join(", ")}
+              <strong>Employment:</strong> {card.allowedEmployment.join(", ")}
             </p>
             {card.score === bestScore && (
               <div className="mt-4">
