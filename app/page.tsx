@@ -7,16 +7,39 @@ import { CardComparisonTable } from "@/components/card-comparison-table"
 import { RefinedEligibilityChecker } from "@/components/refined-eligibility-checker"
 import { RefinedFAQSection } from "@/components/refined-faq-section"
 import { ChatAssistant } from "@/components/chat-assistant"
+import { EligibilityResult } from "@/components/eligibility-result"
+import { scoreCard } from "@/lib/utils/scoreCard"
+import cards from "@/data/cards.json"
 
 export default function BankingAssistant() {
   const [language, setLanguage] = useState("en")
+  const [bestMatchedCard, setBestMatchedCard] = useState(null)
+  const [matchingReasons, setMatchingReasons] = useState<string[]>([])
 
   // ✅ Provide safe default context to prevent undefined error at build time
   const userContext = {
-    income: 0,
-    age: 0,
-    employment: "",
+    income: 80000,
+    age: 30,
+    employment: "Salaried",
     preference: null,
+  }
+
+  const evaluateEligibility = () => {
+    let topCard = null
+    let topScore = 0
+    let reasons: string[] = []
+
+    cards.forEach((card: any) => {
+      const { score, reasons: r } = scoreCard(card, userContext)
+      if (score > topScore) {
+        topCard = card
+        topScore = score
+        reasons = r
+      }
+    })
+
+    setBestMatchedCard(topCard)
+    setMatchingReasons(reasons)
   }
 
   return (
@@ -45,14 +68,19 @@ export default function BankingAssistant() {
           <RecommendedCardBanner language={language} />
 
           <div id="card-comparison">
-            {/* ✅ Fixed here */}
             <CardComparisonTable userContext={userContext} />
           </div>
         </section>
 
         <section>
-          <RefinedEligibilityChecker language={language} />
+          <RefinedEligibilityChecker language={language} onCheckEligibility={evaluateEligibility} />
         </section>
+
+        {bestMatchedCard && (
+          <section>
+            <EligibilityResult selectedCard={bestMatchedCard} reasons={matchingReasons} />
+          </section>
+        )}
 
         <section>
           <RefinedFAQSection language={language} />
