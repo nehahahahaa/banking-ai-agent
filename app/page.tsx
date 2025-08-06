@@ -1,3 +1,4 @@
+page tsx
 "use client"
 
 import { useState } from "react"
@@ -10,15 +11,11 @@ export default function Page() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
+      <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
+
       <div className="mt-10">
         <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
       </div>
-
-      {result && (
-        <div className="mt-10">
-          <CardComparisonTable userContext={result.userContext} />
-        </div>
-      )}
 
       <div className="mt-10">
         <FaqSection language="en" />
