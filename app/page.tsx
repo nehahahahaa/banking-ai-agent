@@ -8,10 +8,14 @@ import { FAQSection } from "@/components/refined-faq-section"
 export default function Page() {
   const [result, setResult] = useState<any>(null)
 
+  const hasUserContext = result && result.userContext
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       {/* Card Comparison Table at Top */}
-      <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
+      {hasUserContext && (
+        <CardComparisonTable userContext={result.userContext} />
+      )}
 
       {/* Eligibility Form Below Cards */}
       <div className="mt-10">
@@ -28,5 +32,3 @@ export default function Page() {
         Chat with Assistant
       </div>
     </div>
-  )
-}
