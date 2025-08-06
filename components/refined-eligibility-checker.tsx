@@ -27,7 +27,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const result = {
       userContext,
-      recommendedCards: [],
+      recommendedCards: [], // scoring handled externally
     }
 
     onSubmit(result)
