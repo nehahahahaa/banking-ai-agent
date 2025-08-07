@@ -30,7 +30,8 @@ export function CardComparisonTable({ userContext, result }: Props) {
           <h3 className="text-lg font-semibold text-blue-700 mb-2">{card.name}</h3>
           <ul className="text-sm text-gray-600 space-y-1">
             <li>
-              <strong>Income Requirement:</strong> ${card.minIncome.toLocaleString()}
+              <strong>Income Requirement:</strong>{" "}
+              ${card.minIncome?.toLocaleString?.() || "N/A"}
             </li>
             <li>
               <strong>Eligible Ages:</strong> {card.eligibleAges[0]}–{card.eligibleAges[1]}
