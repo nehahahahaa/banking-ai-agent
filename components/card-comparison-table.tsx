@@ -1,7 +1,6 @@
 "use client"
 
 import { cards } from "@/lib/utils/cardsData"
-import { scoreCard } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
 
@@ -12,22 +11,24 @@ interface CardComparisonTableProps {
     employment: string
     preference: string | null
   }
+  result: {
+    type: "full-match" | "multiple-match" | "partial-match" | "no-match"
+    recommendedCards: string[]
+    reasons?: string[]
+    failures?: string[]
+  }
 }
 
-export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
+export function CardComparisonTable({ userContext, result }: CardComparisonTableProps) {
   const hasSubmitted = userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
-
-  const scored = cards.map((card) => {
-    const { score, reasons } = scoreCard(card, userContext)
-    return { ...card, score, reasons }
-  })
-
-  const bestScore = hasSubmitted ? Math.max(...scored.map((c) => c.score)) : 0
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-      {scored.map((card) => {
-        const isRecommended = hasSubmitted && card.score === bestScore
+      {cards.map((card) => {
+        const isRecommended =
+          (result.type === "full-match" || result.type === "multiple-match") &&
+          result.recommendedCards.includes(card.name)
+
         return (
           <Card
             key={card.name}
@@ -37,9 +38,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           >
             <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
               <div className="flex items-center gap-2">
-                {isRecommended && (
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                )}
+                {isRecommended && <CheckCircle className="w-5 h-5 text-blue-600" />}
                 <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
               </div>
             </CardHeader>
@@ -56,13 +55,15 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
-              {hasSubmitted && card.reasons?.length > 0 && (
+
+              {/* Optional match reasons if available */}
+              {isRecommended && result.reasons?.length > 0 && (
                 <div className="mt-4">
-                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-gray-600"}`}>
+                  <p className="text-sm font-medium mb-1 text-blue-600">
                     Why we recommend this:
                   </p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
-                    {card.reasons.map((r, i) => (
+                    {result.reasons.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
                   </ul>
