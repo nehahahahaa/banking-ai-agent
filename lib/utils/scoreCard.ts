@@ -1,3 +1,41 @@
+import { Card } from "./cardsData"
+import { UserInfo } from "./userTypes"
+import { cards } from "./cardsData"
+
+export const scoreCard = (
+  card: Card,
+  user: UserInfo
+): { score: number; reasons: string[]; failures: string[] } => {
+  let score = 0
+  const reasons: string[] = []
+  const failures: string[] = []
+
+  const normalizedEmployment = user.employment.toLowerCase()
+
+  if (user.income >= card.minIncome) {
+    score += 1
+    reasons.push("✓ Income meets requirement")
+  } else {
+    failures.push("✗ Income below minimum requirement")
+  }
+
+  if (user.age >= card.eligibleAges[0] && user.age <= card.eligibleAges[1]) {
+    score += 1
+    reasons.push("✓ Age within eligibility range")
+  } else {
+    failures.push("✗ Age not within eligible range")
+  }
+
+  if (card.employmentTypes.includes(normalizedEmployment)) {
+    score += 1
+    reasons.push("✓ Employment type matches")
+  } else {
+    failures.push("✗ Employment type not eligible")
+  }
+
+  return { score, reasons, failures }
+}
+
 export function handleChatQuery(user: UserInfo) {
   const scoredCards = cards.map(card => {
     const result = scoreCard(card, user)
@@ -10,17 +48,17 @@ export function handleChatQuery(user: UserInfo) {
   if (fullyMatchedCards.length === 1) {
     return {
       type: "full-match",
-      recommendedCards: [fullyMatchedCards[0]], // ✅ return full object
+      recommendedCards: [fullyMatchedCards[0]], // ✅ full object
       reasons: fullyMatchedCards[0].reasons,
       message: `Based on your inputs, you may be eligible for the ${fullyMatchedCards[0].name}.`,
     }
   }
 
   if (fullyMatchedCards.length > 1) {
-    const bestCard = fullyMatchedCards[0] // Ranked by order
+    const bestCard = fullyMatchedCards[0]
     return {
       type: "multiple-match",
-      recommendedCards: fullyMatchedCards, // ✅ full objects array
+      recommendedCards: fullyMatchedCards, // ✅ array of full card objects
       reasons: bestCard.reasons,
       message: `You qualify for multiple cards. We recommend the ${bestCard.name} as the best fit based on your profile.`,
     }
