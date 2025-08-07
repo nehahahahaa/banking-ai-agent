@@ -20,7 +20,8 @@ interface CardComparisonTableProps {
 }
 
 export function CardComparisonTable({ userContext, result }: CardComparisonTableProps) {
-  const hasSubmitted = userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
+  const hasSubmitted =
+    userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
@@ -56,7 +57,6 @@ export function CardComparisonTable({ userContext, result }: CardComparisonTable
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
 
-              {/* Optional match reasons if available */}
               {isRecommended && result.reasons?.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-medium mb-1 text-blue-600">
