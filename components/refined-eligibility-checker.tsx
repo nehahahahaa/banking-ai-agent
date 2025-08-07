@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CheckCircle } from "lucide-react"
 import { cards } from "@/lib/utils/cardsData"
 import { handleChatQuery } from "@/lib/utils/scoreCard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CardComparisonTable } from "@/components/card-comparison-table"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -17,6 +17,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   const [employment, setEmployment] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [userContext, setUserContext] = useState<any>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,14 +31,10 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     }
 
     const response = handleChatQuery(context)
-
-    const matchedCards = response.recommendedCards?.map((name: string) =>
-      cards.find((c) => c.name === name)
-    ) || []
-
-    setResult({ ...response, recommendedCards: matchedCards })
+    setResult(response)
+    setUserContext(context)
     onSubmit({ userContext: context, ...response })
-  } // ✅ ← This was the missing brace causing the Vercel build to fail
+  }
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
@@ -98,32 +95,38 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </button>
       </form>
 
-      {/* ✅ Green Box – Full or Multiple Match */}
+      {/* ✅ Show cards after result */}
+      {submitted && result && userContext && (
+        <CardComparisonTable result={result} userContext={userContext} />
+      )}
+
+      {/* ✅ Green Box – Full Match */}
       {submitted && result?.type === "full-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>{card}</li>
             ))}
           </ul>
         </div>
       )}
 
+      {/* 🟢 Multiple Match */}
       {submitted && result?.type === "multiple-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>{card}</li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* ⚠️ Yellow Box – Partial Match */}
+      {/* ⚠️ Partial Match */}
       {submitted && result?.type === "partial-match" && (
         <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
@@ -136,7 +139,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
-      {/* ❌ Red Box – No Match */}
+      {/* ❌ No Match */}
       {submitted && result?.type === "no-match" && (
         <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
