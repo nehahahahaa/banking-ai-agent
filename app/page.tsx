@@ -29,10 +29,10 @@ export default function Page() {
         <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
       </div>
 
-      {/* Green Box Result */}
-      {result?.recommendedCards && result.recommendedCards.length > 0 && (
+      {/* Green or Yellow Box Result */}
+      {result && (
         <div className="mt-10">
-          <EligibilityResult cards={result.recommendedCards} />
+          <EligibilityResult result={result} />
         </div>
       )}
 
