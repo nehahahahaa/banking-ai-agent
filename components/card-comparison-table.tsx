@@ -1,3 +1,4 @@
+
 "use client"
 
 import { cards } from "@/lib/utils/cardsData"
@@ -63,7 +64,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
                   </p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
                     {card.reasons.map((r, i) => (
-                      <li key={i}>✓ {r}</li>
+                      <li key={i}>{r.replace("✓✓", "✓").replace("✓✓", "✓")}</li>
                     ))}
                   </ul>
                 </div>
@@ -74,4 +75,12 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
       })}
     </div>
   )
+}
+
+// ✅ Test Input to validate on UI:
+export const testInput = {
+  income: 4000,
+  age: 42,
+  employment: "Salaried",
+  preference: null,
 }
