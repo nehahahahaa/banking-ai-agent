@@ -1,5 +1,6 @@
 import { Card } from "./cardsData"
 import { UserInfo } from "./userTypes"
+import { cards } from "./cardsData"
 
 export const scoreCard = (
   card: Card,
@@ -31,4 +32,22 @@ export const scoreCard = (
   }
 
   return { score, reasons, failures }
+}
+
+// ✅ Used by Chat Agent
+export function handleChatQuery(user: UserInfo) {
+  const scoredCards = cards.map(card => {
+    const result = scoreCard(card, user)
+    return { ...card, ...result }
+  })
+
+  const bestCard = scoredCards.reduce((best, current) =>
+    current.score > best.score ? current : best
+  )
+
+  return {
+    recommendedCard: bestCard.name,
+    reasons: bestCard.reasons,
+    failures: bestCard.failures
+  }
 }
