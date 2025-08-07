@@ -48,17 +48,17 @@ export function handleChatQuery(user: UserInfo) {
   if (fullyMatchedCards.length === 1) {
     return {
       type: "full-match",
-      recommendedCards: [fullyMatchedCards[0]], // ✅ full object
+      recommendedCards: [fullyMatchedCards[0].name],
       reasons: fullyMatchedCards[0].reasons,
       message: `Based on your inputs, you may be eligible for the ${fullyMatchedCards[0].name}.`,
     }
   }
 
   if (fullyMatchedCards.length > 1) {
-    const bestCard = fullyMatchedCards[0]
+    const bestCard = fullyMatchedCards[0] // First one is highlighted
     return {
       type: "multiple-match",
-      recommendedCards: fullyMatchedCards, // ✅ array of full card objects
+      recommendedCards: fullyMatchedCards.map(c => c.name),
       reasons: bestCard.reasons,
       message: `You qualify for multiple cards. We recommend the ${bestCard.name} as the best fit based on your profile.`,
     }
