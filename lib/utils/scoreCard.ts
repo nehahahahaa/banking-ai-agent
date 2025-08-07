@@ -19,17 +19,23 @@ export const scoreCard = (card: Card, user: UserInfo): { score: number; reasons:
 
   if (user.income >= card.minIncome) {
     score += 1;
-    reasons.push("Income meets requirement");
+    reasons.push("✓ Income meets requirement");
+  } else {
+    reasons.push("✗ Income below requirement");
   }
 
   if (user.age >= card.eligibleAges[0] && user.age <= card.eligibleAges[1]) {
     score += 1;
-    reasons.push("Age within eligibility range");
+    reasons.push("✓ Age within eligibility range");
+  } else {
+    reasons.push("✗ Age not within eligibility range");
   }
 
   if (card.employmentTypes.includes(user.employment)) {
     score += 1;
-    reasons.push("Employment type matches");
+    reasons.push("✓ Employment type accepted");
+  } else {
+    reasons.push("✗ Employment type not accepted");
   }
 
   return { score, reasons };
