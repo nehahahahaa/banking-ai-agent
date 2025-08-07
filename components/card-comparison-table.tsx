@@ -20,13 +20,11 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
     userContext.age > 0 &&
     (userContext.employment || "") !== ""
 
-  // normalize to match cardsData (lowercase)
   const ctx = {
     ...userContext,
     employment: (userContext.employment || "").toLowerCase(),
   }
 
-  // ✅ Use centralized matcher
   const result = hasSubmitted ? handleChatQuery(ctx) : null
   const recommendedNames = new Set<string>(
     (result?.recommendedCards as string[] | undefined) ?? []
@@ -37,19 +35,23 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {cards.map((card) => {
-        // highlight only for full/multiple matches
         const isHighlighted = highlightAllowed && recommendedNames.has(card.name)
-
-        // compute reasons only for highlighted card (clean UI)
         const { reasons } = hasSubmitted ? scoreCard(card, ctx) : { reasons: [] as string[] }
 
         return (
           <Card
             key={card.name}
-            className={`border-2 ${
+            className={`relative border-2 ${
               isHighlighted ? "border-blue-500 shadow-lg" : "border-gray-200"
             } transition-all duration-300 rounded-xl`}
           >
+            {/* ✅ Badge for highlighted cards */}
+            {isHighlighted && (
+              <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full shadow">
+                Recommended
+              </div>
+            )}
+
             <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
               <div className="flex items-center gap-2">
                 {isHighlighted && <CheckCircle className="w-5 h-5 text-blue-600" />}
