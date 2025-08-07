@@ -51,7 +51,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
                 <strong>Min Income:</strong> ${card.minIncome}
               </p>
               <p className="text-sm text-gray-700">
-                <strong>Min Age:</strong> {card.minAge !== undefined ? `${card.minAge}+` : "N/A"}
+                <strong>Min Age:</strong> {typeof card.minAge === "number" ? `${card.minAge}+` : "0+"}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong>{" "}
