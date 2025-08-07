@@ -10,6 +10,8 @@ export const scoreCard = (
   const reasons: string[] = []
   const failures: string[] = []
 
+  const normalizedEmployment = user.employment.toLowerCase()
+
   if (user.income >= card.minIncome) {
     score += 1
     reasons.push("✓ Income meets requirement")
@@ -24,7 +26,7 @@ export const scoreCard = (
     failures.push("✗ Age not within eligible range")
   }
 
-  if (card.employmentTypes.includes(user.employment)) {
+  if (card.employmentTypes.includes(normalizedEmployment)) {
     score += 1
     reasons.push("✓ Employment type matches")
   } else {
@@ -34,7 +36,6 @@ export const scoreCard = (
   return { score, reasons, failures }
 }
 
-// ✅ Main logic that drives 4 UI scenarios
 export function handleChatQuery(user: UserInfo) {
   const scoredCards = cards.map(card => {
     const result = scoreCard(card, user)
@@ -45,7 +46,6 @@ export function handleChatQuery(user: UserInfo) {
   const partialMatchedCards = scoredCards.filter(card => card.score > 0 && card.score < 3)
 
   if (fullyMatchedCards.length === 1) {
-    // ✅ Full Match – Strong Recommendation
     return {
       type: "full-match",
       recommendedCards: [fullyMatchedCards[0].name],
@@ -55,8 +55,7 @@ export function handleChatQuery(user: UserInfo) {
   }
 
   if (fullyMatchedCards.length > 1) {
-    // ✅ Multiple Matches – Ranked with Explanation
-    const bestCard = fullyMatchedCards[0] // Assuming first one is top-ranked; customize if needed
+    const bestCard = fullyMatchedCards[0] // First one is highlighted
     return {
       type: "multiple-match",
       recommendedCards: fullyMatchedCards.map(c => c.name),
@@ -66,7 +65,6 @@ export function handleChatQuery(user: UserInfo) {
   }
 
   if (partialMatchedCards.length > 0) {
-    // ⚠️ Partial Match – Transparent Decline
     return {
       type: "partial-match",
       recommendedCards: [],
@@ -76,7 +74,6 @@ export function handleChatQuery(user: UserInfo) {
     }
   }
 
-  // 🔴 No Match – Assist with Next Steps
   return {
     type: "no-match",
     recommendedCards: [],
