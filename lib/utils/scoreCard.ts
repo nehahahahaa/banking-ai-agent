@@ -1,4 +1,4 @@
-scoreCard.ts
+
 
 import { Card } from "./cardsData"
 import { UserInfo } from "./userTypes"
