@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -37,7 +36,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     })
 
     const bestScore = Math.max(...scored.map((c) => c.score))
-    const bestCards = scored.filter((c) => c.score === bestScore)
+    const bestCards = scored.filter((c) => c.score === bestScore && bestScore > 0)
 
     setRecommendedCards(bestCards)
     setUserContext(context)
@@ -103,6 +102,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </button>
       </form>
 
+      {/* ✅ Green Message for Matches */}
       {submitted && recommendedCards.length > 0 && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
@@ -112,6 +112,18 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
               <li key={i}>{card.name}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* 🔴 Red Message for No Matches */}
+      {submitted && recommendedCards.length === 0 && (
+        <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
+          <p>
+            Try adjusting income, age, or employment type to see more options.
+            You can also <strong>connect with a banking specialist</strong> for personalized guidance.
+          </p>
+          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong> to speak with an agent.</p>
         </div>
       )}
     </div>
