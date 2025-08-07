@@ -1,3 +1,5 @@
+components/refined-eligibility-checker.tsx
+
 "use client"
 
 import { useState } from "react"
@@ -37,7 +39,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     setResult({ ...response, recommendedCards: matchedCards })
     onSubmit({ userContext: context, ...response })
-  }
+  } // ✅ ← This was the missing brace causing the Vercel build to fail
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
