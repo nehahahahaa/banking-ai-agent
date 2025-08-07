@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useState } from "react"
@@ -39,7 +37,15 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     setResult({ ...response, recommendedCards: matchedCards })
     onSubmit({ userContext: context, ...response })
-  } // ✅ ← This was the missing brace causing the Vercel build to fail
+  }
+
+  const handleReset = () => {
+    setIncome("")
+    setAge("")
+    setEmployment("")
+    setSubmitted(false)
+    setResult(null)
+  }
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
@@ -92,12 +98,21 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           </div>
         </div>
 
-        <button
-          type="submit"
-          className="mt-6 w-full bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
-        >
-          Check Eligibility
-        </button>
+        <div className="flex gap-4 mt-6">
+          <button
+            type="submit"
+            className="flex-1 bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
+          >
+            Check Eligibility
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex-1 bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Reset
+          </button>
+        </div>
       </form>
 
       {/* ✅ Green Box – Full or Multiple Match */}
