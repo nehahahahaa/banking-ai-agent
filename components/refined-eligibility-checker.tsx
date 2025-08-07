@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -32,13 +31,13 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const response = handleChatQuery(context)
 
-    const matchedCards = response.recommendedCards?.map((name: string) =>
-      cards.find((c) => c.name === name)
-    ) || []
+    const matchedCards = response.recommendedCards
+      ?.map((name: string) => cards.find((c) => c.name === name))
+      .filter(Boolean) || [] // ✅ Remove undefined
 
     setResult({ ...response, recommendedCards: matchedCards })
     onSubmit({ userContext: context, ...response })
-  } // ✅ ← This was the missing brace causing the Vercel build to fail
+  }
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
@@ -105,9 +104,9 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
-            {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
-            ))}
+            {result.recommendedCards.map((card: any, i: number) =>
+              card ? <li key={i}>{card.name}</li> : null
+            )}
           </ul>
         </div>
       )}
@@ -117,9 +116,9 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
-            {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
-            ))}
+            {result.recommendedCards.map((card: any, i: number) =>
+              card ? <li key={i}>{card.name}</li> : null
+            )}
           </ul>
         </div>
       )}
