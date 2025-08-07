@@ -2,7 +2,7 @@
 
 import { cards } from "@/lib/utils/cardsData"
 import { scoreCard } from "@/lib/utils/scoreCard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
 
 interface CardComparisonTableProps {
@@ -27,9 +27,9 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {scored.map((card) => {
-        const isRecommended = hasSubmitted && card.score === bestScore && card.score === 3
+        const isRecommended = hasSubmitted && card.score === bestScore
         return (
-          <Card
+          <UICard
             key={card.name}
             className={`border-2 ${
               isRecommended ? "border-blue-500 shadow-lg" : "border-gray-200"
@@ -56,23 +56,23 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
-              {hasSubmitted && (
+              {hasSubmitted && (card.reasons?.length > 0 || card.failures?.length > 0) && (
                 <div className="mt-4">
-                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-yellow-700"}`}>
-                    {isRecommended ? "Why we recommend this:" : "Eligibility Details:"}
+                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-gray-600"}`}>
+                    Why we recommend this:
                   </p>
-                  <ul className="list-disc list-inside text-sm text-gray-600">
-                    {card.reasons.map((r, i) => (
-                      <li key={i}>✓ {r}</li>
+                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                    {card.reasons?.map((r, i) => (
+                      <li key={`r-${i}`}>{r}</li>
                     ))}
-                    {card.failures.map((f, i) => (
-                      <li key={`f-${i}`} className="text-red-600">❌ {f}</li>
+                    {card.failures?.map((f, i) => (
+                      <li key={`f-${i}`}>{f}</li>
                     ))}
                   </ul>
                 </div>
               )}
             </CardContent>
-          </Card>
+          </UICard>
         )
       })}
     </div>
