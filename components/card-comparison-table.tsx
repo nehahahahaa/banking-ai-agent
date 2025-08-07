@@ -1,4 +1,3 @@
-card-comparison-table.tsx
 
 "use client"
 
