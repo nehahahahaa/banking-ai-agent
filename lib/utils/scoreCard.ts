@@ -55,7 +55,7 @@ export function handleChatQuery(user: UserInfo) {
   }
 
   if (fullyMatchedCards.length > 1) {
-    const bestCard = fullyMatchedCards[0] // First one is highlighted
+    const bestCard = fullyMatchedCards[0] // Ranked by order; customize if needed
     return {
       type: "multiple-match",
       recommendedCards: fullyMatchedCards.map(c => c.name),
