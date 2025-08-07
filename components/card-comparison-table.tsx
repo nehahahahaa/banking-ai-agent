@@ -15,25 +15,19 @@ interface CardComparisonTableProps {
 }
 
 export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
-  const hasSubmitted =
-    userContext &&
-    userContext.income > 0 &&
-    userContext.age > 0 &&
-    userContext.employment !== ""
+  const hasSubmitted = userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
 
   const scored = cards.map((card) => {
     const { score, reasons } = scoreCard(card, userContext)
     return { ...card, score, reasons }
   })
 
-  const bestScore = hasSubmitted
-    ? Math.max(...scored.map((c) => c.score))
-    : 0
+  const bestScore = hasSubmitted ? Math.max(...scored.map((c) => c.score)) : 0
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {scored.map((card) => {
-        const isRecommended = hasSubmitted && card.score === bestScore && bestScore > 0
+        const isRecommended = hasSubmitted && card.score === bestScore
         return (
           <Card
             key={card.name}
@@ -62,13 +56,12 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
-
               {isRecommended && card.reasons?.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
                     {card.reasons.map((r, i) => (
-                      <li key={i}>✓ {r}</li>
+                      <li key={i}>{r}</li>  {/* ✅ Removed extra "✓" */}
                     ))}
                   </ul>
                 </div>
