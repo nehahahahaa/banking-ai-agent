@@ -105,9 +105,10 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
-            {result.recommendedCards.map((card: any, i: number) =>
-              card ? <li key={i}>{card.name}</li> : null
-            )}
+            {Array.isArray(result.recommendedCards) &&
+              result.recommendedCards.map((card: any, i: number) =>
+                card?.name ? <li key={i}>{card.name}</li> : null
+              )}
           </ul>
         </div>
       )}
@@ -117,9 +118,10 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
-            {result.recommendedCards.map((card: any, i: number) =>
-              card ? <li key={i}>{card.name}</li> : null
-            )}
+            {Array.isArray(result.recommendedCards) &&
+              result.recommendedCards.map((card: any, i: number) =>
+                card?.name ? <li key={i}>{card.name}</li> : null
+              )}
           </ul>
         </div>
       )}
