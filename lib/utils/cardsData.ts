@@ -1,3 +1,7 @@
+/cardsData.ts
+
+
+
 export const cards = [
   {
     name: "Platinum Travel Card",
