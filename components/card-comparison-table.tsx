@@ -1,4 +1,3 @@
-
 "use client"
 
 import { cards } from "@/lib/utils/cardsData"
@@ -46,7 +45,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
             </CardHeader>
             <CardContent className="p-6 space-y-2">
               <p className="text-sm text-gray-700">
-                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
+                <strong>Benefits:</strong> {card.benefits?.join(", ") || "Standard Benefits"}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Min Income:</strong> ${card.minIncome}
