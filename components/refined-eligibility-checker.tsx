@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle } from "lucide-react"
 import { cards } from "@/lib/utils/cardsData"
 import { handleChatQuery } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,7 +31,6 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const response = handleChatQuery(context)
 
-    // Map card names to full card objects
     const matchedCards = response.recommendedCards?.map((name: string) =>
       cards.find((c) => c.name === name)
     ) || []
@@ -124,7 +123,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
-      {/* ⚠️ Yellow/Red Box – Partial Match */}
+      {/* ⚠️ Yellow Box – Partial Match */}
       {submitted && result?.type === "partial-match" && (
         <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
