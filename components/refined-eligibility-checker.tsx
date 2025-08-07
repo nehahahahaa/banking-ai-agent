@@ -31,9 +31,10 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const response = handleChatQuery(context)
 
-    const matchedCards = response.recommendedCards
-      ?.map((name: string) => cards.find((c) => c.name === name))
-      .filter(Boolean) || [] // ✅ Remove undefined
+    const matchedCards =
+      (response.recommendedCards || [])
+        .map((name: string) => cards.find((c) => c.name === name))
+        .filter((card): card is typeof cards[0] => card !== undefined)
 
     setResult({ ...response, recommendedCards: matchedCards })
     onSubmit({ userContext: context, ...response })
