@@ -18,12 +18,10 @@ export default function Page() {
         </p>
       </div>
 
-      {/* Show comparison table after eligibility is checked */}
-      {result?.userContext && (
-        <div className="mt-10">
-          <CardComparisonTable userContext={result.userContext} />
-        </div>
-      )}
+      {/* ✅ Always show the card comparison table */}
+      <div className="mt-10">
+        <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
+      </div>
 
       {/* Eligibility Form */}
       <div className="mt-10">
