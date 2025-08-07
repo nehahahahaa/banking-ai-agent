@@ -14,10 +14,10 @@ export const cards = [
     benefits: ["Cashback", "No annual fee"],
   },
   {
-    name: "Senior Secure Card",
-    minIncome: 10000,
-    eligibleAges: [55, 80],
-    employmentTypes: ["retired"],
-    benefits: ["Medical benefits", "No late fee"],
-  },
+  name: "Senior Secure Card",
+  minIncome: 10000,
+  eligibleAges: [55, 80],
+  employmentTypes: ["retired", "self-employed"], // added self-employed
+  benefits: ["Medical benefits", "No late fee"],
+}
 ];
