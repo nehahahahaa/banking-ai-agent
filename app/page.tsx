@@ -18,10 +18,12 @@ export default function Page() {
         </p>
       </div>
 
-      {/* ✅ Always show the card comparison table */}
-      <div className="mt-10">
-        <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
-      </div>
+      {/* ✅ Only show CardComparisonTable if result and userContext are present */}
+      {result?.userContext && (
+        <div className="mt-10">
+          <CardComparisonTable result={result} userContext={result.userContext} />
+        </div>
+      )}
 
       {/* Eligibility Form */}
       <div className="mt-10">
