@@ -36,7 +36,8 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     })
 
     const bestScore = Math.max(...scored.map((c) => c.score))
-    const bestCards = scored.filter((c) => c.score === bestScore && bestScore > 0)
+const bestCards = bestScore > 0 ? scored.filter((c) => c.score === bestScore) : []
+
 
     setRecommendedCards(bestCards)
     setUserContext(context)
