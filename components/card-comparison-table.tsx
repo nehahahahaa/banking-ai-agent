@@ -15,78 +15,68 @@ interface CardComparisonTableProps {
 }
 
 export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
-  const hasSubmitted = userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
+  const hasSubmitted =
+    userContext &&
+    userContext.income > 0 &&
+    userContext.age > 0 &&
+    userContext.employment !== ""
 
   const scored = cards.map((card) => {
     const { score, reasons } = scoreCard(card, userContext)
     return { ...card, score, reasons }
   })
 
-  const bestScore = hasSubmitted ? Math.max(...scored.map((c) => c.score)) : 0
-  const bestCards = scored.filter(c => c.score === bestScore)
-  const fullMatchCards = bestCards.filter(c => c.score === 3) // all criteria matched
-
-  const hasFullMatch = fullMatchCards.length > 0
+  const bestScore = hasSubmitted
+    ? Math.max(...scored.map((c) => c.score))
+    : 0
 
   return (
-    <>
-      {hasSubmitted && hasFullMatch && (
-        <div className="border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl mb-6">
-          <p className="font-semibold mb-2">🧠 Strong match! Based on your profile, we recommend:</p>
-          <ul className="list-disc list-inside text-sm">
-            {fullMatchCards.map((card) => (
-              <li key={card.name}><strong>{card.name}</strong> – best fit based on your income, age, and employment type.</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        {scored.map((card) => {
-          const isRecommended = hasFullMatch && fullMatchCards.some(c => c.name === card.name)
-          return (
-            <Card
-              key={card.name}
-              className={`border-2 ${
-                isRecommended ? "border-blue-500 shadow-lg" : "border-gray-200"
-              } transition-all duration-300 rounded-xl`}
-            >
-              <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
-                <div className="flex items-center gap-2">
-                  {isRecommended && (
-                    <CheckCircle className="w-5 h-5 text-blue-600" />
-                  )}
-                  <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6 space-y-2">
-                <p className="text-sm text-gray-700">
-                  <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
-                </p>
-                <p className="text-sm text-gray-700">
-                  <strong>Min Income:</strong> ${card.minIncome}
-                </p>
-                <p className="text-sm text-gray-700">
-                  <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
-                </p>
-                <p className="text-sm text-gray-700">
-                  <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
-                </p>
-                {isRecommended && card.reasons?.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
-                    <ul className="list-disc list-inside text-sm text-gray-600">
-                      {card.reasons.map((r, i) => (
-                        <li key={i}>✓ {r}</li>
-                      ))}
-                    </ul>
-                  </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+      {scored.map((card) => {
+        const isRecommended = hasSubmitted && card.score === bestScore && bestScore > 0
+        return (
+          <Card
+            key={card.name}
+            className={`border-2 ${
+              isRecommended ? "border-blue-500 shadow-lg" : "border-gray-200"
+            } transition-all duration-300 rounded-xl`}
+          >
+            <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
+              <div className="flex items-center gap-2">
+                {isRecommended && (
+                  <CheckCircle className="w-5 h-5 text-blue-600" />
                 )}
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-    </>
+                <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-2">
+              <p className="text-sm text-gray-700">
+                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Min Income:</strong> ${card.minIncome}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
+              </p>
+
+              {isRecommended && card.reasons?.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-600">
+                    {card.reasons.map((r, i) => (
+                      <li key={i}>✓ {r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
   )
 }
