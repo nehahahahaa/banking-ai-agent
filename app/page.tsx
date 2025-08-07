@@ -2,10 +2,14 @@ page.tsx
 
 "use client"
 
+"use client"
+
 import { useState } from "react"
 import { EligibilityForm } from "@/components/refined-eligibility-checker"
 import { CardComparisonTable } from "@/components/card-comparison-table"
 import { FaqSection } from "@/components/refined-faq-section"
+import { EligibilityResult } from "@/components/eligibility-result"
+
 
 export default function Page() {
   const [result, setResult] = useState<any>(null)
