@@ -18,30 +18,30 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   const hasSubmitted =
     userContext.income > 0 &&
     userContext.age > 0 &&
-    userContext.employment !== ""
+    (userContext.employment || "") !== ""
 
-  // Normalize once so it matches cardsData employmentTypes (all lowercase)
-  const normalizedContext = {
+  // normalize to match cardsData (lowercase)
+  const ctx = {
     ...userContext,
     employment: (userContext.employment || "").toLowerCase(),
   }
 
-  // ✅ Use centralized logic so UI follows your 4 scenarios exactly
-  const result = hasSubmitted ? handleChatQuery(normalizedContext) : null
-  const recommendedSet = new Set(
+  // ✅ Use centralized matcher
+  const result = hasSubmitted ? handleChatQuery(ctx) : null
+  const recommendedNames = new Set<string>(
     (result?.recommendedCards as string[] | undefined) ?? []
   )
+  const highlightAllowed =
+    result?.type === "full-match" || result?.type === "multiple-match"
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {cards.map((card) => {
-        // Highlight only when the card is recommended AND the type is full/multiple
-        const isHighlighted =
-          recommendedSet.has(card.name) &&
-          (result?.type === "full-match" || result?.type === "multiple-match")
+        // highlight only for full/multiple matches
+        const isHighlighted = highlightAllowed && recommendedNames.has(card.name)
 
-        // Show “why” bullets only for highlighted cards (bank-style: explain chosen options)
-        const { reasons } = hasSubmitted ? scoreCard(card, normalizedContext) : { reasons: [] as string[] }
+        // compute reasons only for highlighted card (clean UI)
+        const { reasons } = hasSubmitted ? scoreCard(card, ctx) : { reasons: [] as string[] }
 
         return (
           <Card
@@ -61,7 +61,8 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
 
             <CardContent className="p-6 space-y-2">
               <p className="text-sm text-gray-700">
-                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
+                <strong>Features:</strong>{" "}
+                {card.features?.join(", ") || "Standard Benefits"}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Min Income:</strong> ${card.minIncome}
