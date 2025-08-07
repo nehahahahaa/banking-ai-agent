@@ -74,7 +74,10 @@ export function handleChatQuery(user: UserInfo) {
       type: "partial-match",
       recommendedCards: [],
       reasons: [],
-      failures: partialMatchedCards.flatMap((c) => [`${c.name}:`, ...c.failures]),
+      failures: partialMatchedCards.flatMap((c) => {
+        if (!c || !c.name || !Array.isArray(c.failures)) return []
+        return [`${c.name}:`, ...c.failures]
+      }),
       message: "Some eligibility criteria were not met. Please see the reasons below.",
     }
   }
