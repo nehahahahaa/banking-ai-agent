@@ -1,4 +1,3 @@
-
 "use client"
 
 import { cards } from "@/lib/utils/cardsData"
@@ -19,8 +18,8 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   const hasSubmitted = userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
 
   const scored = cards.map((card) => {
-    const { score, reasons } = scoreCard(card, userContext)
-    return { ...card, score, reasons }
+    const { score, reasons, failures } = scoreCard(card, userContext)
+    return { ...card, score, reasons, failures }
   })
 
   const bestScore = hasSubmitted ? Math.max(...scored.map((c) => c.score)) : 0
@@ -28,7 +27,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {scored.map((card) => {
-        const isRecommended = hasSubmitted && card.score === bestScore
+        const isRecommended = hasSubmitted && card.score === bestScore && card.score === 3
         return (
           <Card
             key={card.name}
@@ -57,14 +56,17 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
-              {hasSubmitted && card.reasons?.length > 0 && (
+              {hasSubmitted && (
                 <div className="mt-4">
-                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-gray-600"}`}>
-                    Why we recommend this:
+                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-yellow-700"}`}>
+                    {isRecommended ? "Why we recommend this:" : "Eligibility Details:"}
                   </p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
                     {card.reasons.map((r, i) => (
-                      <li key={i}>{r.replace("✓✓", "✓").replace("✓✓", "✓")}</li>
+                      <li key={i}>✓ {r}</li>
+                    ))}
+                    {card.failures.map((f, i) => (
+                      <li key={`f-${i}`} className="text-red-600">❌ {f}</li>
                     ))}
                   </ul>
                 </div>
@@ -75,12 +77,4 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
       })}
     </div>
   )
-}
-
-// ✅ Test Input to validate on UI:
-export const testInput = {
-  income: 4000,
-  age: 42,
-  employment: "Salaried",
-  preference: null,
 }
