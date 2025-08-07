@@ -1,6 +1,3 @@
-/cardsData.ts
-
-
 
 export const cards = [
   {
