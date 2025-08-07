@@ -1,78 +1,44 @@
 "use client"
 
-import { cards } from "@/lib/utils/cardsData"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle } from "lucide-react"
+import { useState } from "react"
+import { EligibilityForm } from "@/components/refined-eligibility-checker"
+import { CardComparisonTable } from "@/components/card-comparison-table"
+import { FaqSection } from "@/components/refined-faq-section"
 
-interface CardComparisonTableProps {
-  userContext: {
-    income: number
-    age: number
-    employment: string
-    preference: string | null
-  }
-  result: {
-    type: "full-match" | "multiple-match" | "partial-match" | "no-match"
-    recommendedCards: string[]
-    reasons?: string[]
-    failures?: string[]
-  }
-}
-
-export function CardComparisonTable({ userContext, result }: CardComparisonTableProps) {
-  const hasSubmitted =
-    userContext.income > 0 && userContext.age > 0 && userContext.employment !== ""
+export default function Page() {
+  const [result, setResult] = useState<any>(null)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-      {cards.map((card) => {
-        const isRecommended =
-          (result.type === "full-match" || result.type === "multiple-match") &&
-          result.recommendedCards.includes(card.name)
+    <div className="max-w-7xl mx-auto p-6">
+      {/* Heading */}
+      <div className="text-center mt-10">
+        <h1 className="text-3xl font-bold text-blue-800">Find Your Perfect Credit Card</h1>
+        <p className="mt-2 text-gray-600">
+          Compare cards, check eligibility, and get personalized recommendations with our AI-powered banking assistant
+        </p>
+      </div>
 
-        return (
-          <Card
-            key={card.name}
-            className={`border-2 ${
-              isRecommended ? "border-blue-500 shadow-lg" : "border-gray-200"
-            } transition-all duration-300 rounded-xl`}
-          >
-            <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
-              <div className="flex items-center gap-2">
-                {isRecommended && <CheckCircle className="w-5 h-5 text-blue-600" />}
-                <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-2">
-              <p className="text-sm text-gray-700">
-                <strong>Features:</strong> {card.features?.join(", ") || "Standard Benefits"}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Min Income:</strong> ${card.minIncome}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
-              </p>
+      {/* ✅ Show card comparison table only if result is available */}
+      <div className="mt-10">
+        {result?.userContext && result?.recommendedCards && result?.type && (
+          <CardComparisonTable result={result} userContext={result.userContext} />
+        )}
+      </div>
 
-              {isRecommended && result.reasons?.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-1 text-blue-600">
-                    Why we recommend this:
-                  </p>
-                  <ul className="list-disc list-inside text-sm text-gray-600">
-                    {result.reasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
+      {/* Eligibility Form */}
+      <div className="mt-10">
+        <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
+      </div>
+
+      {/* FAQ Section */}
+      <div className="mt-10">
+        <FaqSection language="en" />
+      </div>
+
+      {/* Floating Chat */}
+      <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
+        Chat with Assistant
+      </div>
     </div>
   )
 }
