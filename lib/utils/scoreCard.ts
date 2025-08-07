@@ -1,6 +1,11 @@
-import { Card } from "./cardsData"
-import { UserInfo } from "./userTypes"
-import { cards } from "./cardsData"
+import { Card, cards } from "./cardsData"
+
+export interface UserInfo {
+  income: number
+  age: number
+  employment: string
+  preference: string | null
+}
 
 export const scoreCard = (
   card: Card,
@@ -37,13 +42,13 @@ export const scoreCard = (
 }
 
 export function handleChatQuery(user: UserInfo) {
-  const scoredCards = cards.map(card => {
+  const scoredCards = cards.map((card) => {
     const result = scoreCard(card, user)
     return { ...card, ...result }
   })
 
-  const fullyMatchedCards = scoredCards.filter(card => card.score === 3)
-  const partialMatchedCards = scoredCards.filter(card => card.score > 0 && card.score < 3)
+  const fullyMatchedCards = scoredCards.filter((card) => card.score === 3)
+  const partialMatchedCards = scoredCards.filter((card) => card.score > 0 && card.score < 3)
 
   if (fullyMatchedCards.length === 1) {
     return {
@@ -55,10 +60,10 @@ export function handleChatQuery(user: UserInfo) {
   }
 
   if (fullyMatchedCards.length > 1) {
-    const bestCard = fullyMatchedCards[0] // Ranked by order; customize if needed
+    const bestCard = fullyMatchedCards[0] // Default: first card
     return {
       type: "multiple-match",
-      recommendedCards: fullyMatchedCards.map(c => c.name),
+      recommendedCards: fullyMatchedCards.map((c) => c.name),
       reasons: bestCard.reasons,
       message: `You qualify for multiple cards. We recommend the ${bestCard.name} as the best fit based on your profile.`,
     }
@@ -69,7 +74,7 @@ export function handleChatQuery(user: UserInfo) {
       type: "partial-match",
       recommendedCards: [],
       reasons: [],
-      failures: partialMatchedCards.flatMap(c => [`${c.name}:`, ...c.failures]),
+      failures: partialMatchedCards.flatMap((c) => [`${c.name}:`, ...c.failures]),
       message: "Some eligibility criteria were not met. Please see the reasons below.",
     }
   }
@@ -79,6 +84,7 @@ export function handleChatQuery(user: UserInfo) {
     recommendedCards: [],
     reasons: [],
     failures: [],
-    message: "No card matches your inputs right now. Try adjusting income or employment type to see more options.",
+    message:
+      "No card matches your inputs right now. Try adjusting income or employment type to see more options.",
   }
 }
