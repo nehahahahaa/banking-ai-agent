@@ -1,4 +1,3 @@
-
 "use client"
 
 import { cards } from "@/lib/utils/cardsData"
@@ -21,7 +20,10 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
     return { ...card, score, reasons }
   })
 
-  const bestScore = Math.max(...scored.map((c) => c.score))
+  // 🔹 Only highlight best card if form was submitted
+  const isRealInput =
+    userContext.income > 0 || userContext.age > 0 || userContext.employment !== ""
+  const bestScore = isRealInput ? Math.max(...scored.map((c) => c.score)) : -1
 
   return (
     <>
@@ -37,12 +39,12 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
           <Card
             key={card.name}
             className={`border-2 ${
-              card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
+              isRealInput && card.score === bestScore ? "border-blue-500 shadow-lg" : "border-gray-200"
             } transition-all duration-300 rounded-xl`}
           >
             <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
               <div className="flex items-center gap-2">
-                {card.score === bestScore && (
+                {isRealInput && card.score === bestScore && (
                   <CheckCircle className="w-5 h-5 text-blue-600" />
                 )}
                 <CardTitle className="text-lg text-gray-800 font-semibold">{card.name}</CardTitle>
@@ -61,7 +63,7 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.allowedEmployment?.join(", ")}
               </p>
-              {card.score === bestScore && card.reasons?.length > 0 && (
+              {isRealInput && card.score === bestScore && card.reasons?.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
