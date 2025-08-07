@@ -1,5 +1,12 @@
+export interface Card {
+  name: string
+  minIncome: number
+  eligibleAges: [number, number]
+  employmentTypes: string[]
+  benefits: string[]
+}
 
-export const cards = [
+export const cards: Card[] = [
   {
     name: "Platinum Travel Card",
     minIncome: 30000,
@@ -21,4 +28,4 @@ export const cards = [
     employmentTypes: ["retired"],
     benefits: ["Medical benefits", "No late fee"],
   },
-];
+]
