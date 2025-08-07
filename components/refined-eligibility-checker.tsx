@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, AlertCircle } from "lucide-react"
 import { cards } from "@/lib/utils/cardsData"
-import { scoreCard } from "@/lib/utils/scoreCard"
+import { handleChatQuery } from "@/lib/utils/scoreCard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface EligibilityFormProps {
@@ -16,8 +16,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("")
   const [submitted, setSubmitted] = useState(false)
-  const [recommendedCards, setRecommendedCards] = useState<any[]>([])
-  const [userContext, setUserContext] = useState<any>(null)
+  const [result, setResult] = useState<any>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,22 +25,19 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     const context = {
       income: Number(income),
       age: Number(age),
-      employment,
+      employment: employment.toLowerCase(),
       preference: null,
     }
 
-    const scored = cards.map((card) => {
-      const { score, reasons } = scoreCard(card, context)
-      return { ...card, score, reasons }
-    })
+    const response = handleChatQuery(context)
 
-    const bestScore = Math.max(...scored.map((c) => c.score))
-const bestCards = bestScore > 0 ? scored.filter((c) => c.score === bestScore) : []
+    // Map card names to full card objects
+    const matchedCards = response.recommendedCards?.map((name: string) =>
+      cards.find((c) => c.name === name)
+    ) || []
 
-
-    setRecommendedCards(bestCards)
-    setUserContext(context)
-    onSubmit({ userContext: context, recommendedCards: bestCards })
+    setResult({ ...response, recommendedCards: matchedCards })
+    onSubmit({ userContext: context, ...response })
   }
 
   return (
@@ -103,30 +99,45 @@ const bestCards = bestScore > 0 ? scored.filter((c) => c.score === bestScore) : 
         </button>
       </form>
 
-      {/* ✅ Green Message for Matches */}
-      {submitted && recommendedCards.length > 0 && (
+      {/* ✅ Green Box – Full or Multiple Match */}
+      {submitted && result?.type === "full-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
-          <p>Based on your inputs, we recommend the following card(s):</p>
+          <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
-            {recommendedCards.map((card, i) => (
+            {result.recommendedCards.map((card: any, i: number) => (
               <li key={i}>{card.name}</li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* 🔴 Red Message for No Matches */}
-      {submitted && recommendedCards.length === 0 && (
-        <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
-          <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
-          <p>
-            Try adjusting income, age, or employment type to see more options.
-            You can also <strong>connect with a banking specialist</strong> for personalized guidance.
-          </p>
-          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong> to speak with an agent.</p>
+      {submitted && result?.type === "multiple-match" && (
+        <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
+          <p>{result.message}</p>
+          <ul className="list-disc list-inside mt-2">
+            {result.recommendedCards.map((card: any, i: number) => (
+              <li key={i}>{card.name}</li>
+            ))}
+          </ul>
         </div>
       )}
-    </div>
-  )
-}
+
+      {/* ⚠️ Yellow/Red Box – Partial Match */}
+      {submitted && result?.type === "partial-match" && (
+        <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
+          <p>{result.message}</p>
+          <ul className="list-disc list-inside mt-2">
+            {result.failures.map((fail: string, i: number) => (
+              <li key={i}>{fail}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ❌ Red Box – No Match */}
+      {submitted && result?.type === "no-match" && (
+        <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">❌ N
