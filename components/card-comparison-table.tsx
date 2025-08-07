@@ -56,12 +56,14 @@ export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
               <p className="text-sm text-gray-700">
                 <strong>Employment:</strong> {card.employmentTypes?.join(", ")}
               </p>
-              {isRecommended && card.reasons?.length > 0 && (
+              {hasSubmitted && card.reasons?.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm text-blue-600 font-medium mb-1">Why we recommend this:</p>
+                  <p className={`text-sm font-medium mb-1 ${isRecommended ? "text-blue-600" : "text-gray-600"}`}>
+                    Why we recommend this:
+                  </p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
                     {card.reasons.map((r, i) => (
-                      <li key={i}>{r}</li>  {/* ✅ Removed extra "✓" */}
+                      <li key={i}>✓ {r}</li>
                     ))}
                   </ul>
                 </div>
