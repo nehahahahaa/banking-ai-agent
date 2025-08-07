@@ -34,20 +34,54 @@ export const scoreCard = (
   return { score, reasons, failures }
 }
 
-// ✅ Used by Chat Agent
+// ✅ Main logic that drives 4 UI scenarios
 export function handleChatQuery(user: UserInfo) {
   const scoredCards = cards.map(card => {
     const result = scoreCard(card, user)
     return { ...card, ...result }
   })
 
-  const bestCard = scoredCards.reduce((best, current) =>
-    current.score > best.score ? current : best
-  )
+  const fullyMatchedCards = scoredCards.filter(card => card.score === 3)
+  const partialMatchedCards = scoredCards.filter(card => card.score > 0 && card.score < 3)
 
+  if (fullyMatchedCards.length === 1) {
+    // ✅ Full Match – Strong Recommendation
+    return {
+      type: "full-match",
+      recommendedCards: [fullyMatchedCards[0].name],
+      reasons: fullyMatchedCards[0].reasons,
+      message: `Based on your inputs, you may be eligible for the ${fullyMatchedCards[0].name}.`,
+    }
+  }
+
+  if (fullyMatchedCards.length > 1) {
+    // ✅ Multiple Matches – Ranked with Explanation
+    const bestCard = fullyMatchedCards[0] // Assuming first one is top-ranked; customize if needed
+    return {
+      type: "multiple-match",
+      recommendedCards: fullyMatchedCards.map(c => c.name),
+      reasons: bestCard.reasons,
+      message: `You qualify for multiple cards. We recommend the ${bestCard.name} as the best fit based on your profile.`,
+    }
+  }
+
+  if (partialMatchedCards.length > 0) {
+    // ⚠️ Partial Match – Transparent Decline
+    return {
+      type: "partial-match",
+      recommendedCards: [],
+      reasons: [],
+      failures: partialMatchedCards.flatMap(c => [`${c.name}:`, ...c.failures]),
+      message: "Some eligibility criteria were not met. Please see the reasons below.",
+    }
+  }
+
+  // 🔴 No Match – Assist with Next Steps
   return {
-    recommendedCard: bestCard.name,
-    reasons: bestCard.reasons,
-    failures: bestCard.failures
+    type: "no-match",
+    recommendedCards: [],
+    reasons: [],
+    failures: [],
+    message: "No card matches your inputs right now. Try adjusting income or employment type to see more options.",
   }
 }
