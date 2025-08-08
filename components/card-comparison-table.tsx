@@ -1,91 +1,85 @@
 "use client"
 
-import { cards } from "@/lib/utils/cardsData"
-import { scoreCard } from "@/lib/utils/scoreCard"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle } from "lucide-react"
+import { scoreCard } from "../lib/utils/scoreCard"
+import type { Card as CardType } from "../lib/utils/cardsData"
 
 interface CardComparisonTableProps {
-  userContext: {
+  cards?: CardType[]
+  recommendedCards?: CardType[]   // from EligibilityForm (array of cards)
+  userContext?: {
     income: number
     age: number
     employment: string
     preference: string | null
-    recommendedCards?: string[] // Added to know which cards to highlight
   }
 }
 
-export function CardComparisonTable({ userContext }: CardComparisonTableProps) {
-  const hasSubmitted =
-    userContext.income > 0 &&
-    userContext.age > 0 &&
-    userContext.employment !== ""
-
-  const scored = cards.map((card) => {
-    const { score, reasons } = scoreCard(card, userContext)
-    return { ...card, score, reasons }
-  })
-
-  // ✅ Only highlight if recommendedCards exists and matches card name
-  const highlightedCards = userContext?.recommendedCards || []
+export function CardComparisonTable({
+  cards = [],
+  recommendedCards = [],
+  userContext,
+}: CardComparisonTableProps) {
+  // Build a quick lookup for which cards should be highlighted
+  const highlightedNames = new Set(
+    (recommendedCards || []).map((c) => c?.name).filter(Boolean) as string[]
+  )
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-      {scored.map((card) => {
-        const isRecommended =
-          hasSubmitted && highlightedCards.includes(card.name)
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {cards.map((card, idx) => {
+        const isHighlighted = highlightedNames.has(card.name)
+
+        // Recompute reasons ONLY for highlighted cards (so the list shows)
+        const reasons =
+          isHighlighted && userContext
+            ? scoreCard(card, {
+                ...userContext,
+                employment: (userContext.employment || "").toLowerCase(),
+              }).reasons
+            : []
 
         return (
-          <Card
-            key={card.name}
-            className={`border-2 ${
-              isRecommended ? "border-blue-500 shadow-lg" : "border-gray-200"
-            } transition-all duration-300 rounded-xl`}
+          <div
+            key={idx}
+            className={`p-6 rounded-xl border transition-all ${
+              isHighlighted
+                ? "border-2 border-blue-500 shadow-lg"
+                : "border border-gray-300"
+            }`}
           >
-            <CardHeader className="bg-blue-50 py-4 px-6 rounded-t-xl">
-              <div className="flex items-center gap-2">
-                {isRecommended && (
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
-                )}
-                <CardTitle className="text-lg text-gray-800 font-semibold">
-                  {card.name}
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-2">
-              <p className="text-sm text-gray-700">
-                <strong>Features:</strong>{" "}
-                {card.features?.join(", ") || "Standard Benefits"}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Min Income:</strong> ${card.minIncome}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Age Range:</strong> {card.eligibleAges[0]} –{" "}
-                {card.eligibleAges[1]}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Employment:</strong>{" "}
-                {card.employmentTypes?.join(", ")}
-              </p>
-              {hasSubmitted && card.reasons?.length > 0 && (
-                <div className="mt-4">
-                  <p
-                    className={`text-sm font-medium mb-1 ${
-                      isRecommended ? "text-blue-600" : "text-gray-600"
-                    }`}
-                  >
-                    Why we recommend this:
-                  </p>
-                  <ul className="list-disc list-inside text-sm text-gray-600">
-                    {card.reasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
+            <h3 className="text-lg font-semibold mb-2 flex items-center justify-between">
+              {card.name}
+              {isHighlighted && (
+                <span className="bg-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded">
+                  Recommended
+                </span>
               )}
-            </CardContent>
-          </Card>
+            </h3>
+
+            <p className="text-sm mb-1">
+              <strong>Features:</strong> Standard Benefits
+            </p>
+            <p className="text-sm mb-1">
+              <strong>Min Income:</strong> ${card.minIncome}
+            </p>
+            <p className="text-sm mb-1">
+              <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
+            </p>
+            <p className="text-sm mb-3">
+              <strong>Employment:</strong> {card.employmentTypes.join(", ")}
+            </p>
+
+            {isHighlighted && reasons.length > 0 && (
+              <div className="mt-3">
+                <p className="text-blue-600 font-medium">Why we recommend this:</p>
+                <ul className="list-disc list-inside text-sm text-blue-600">
+                  {reasons.map((r, i) => (
+                    <li key={i}>✓ {r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )
       })}
     </div>
