@@ -21,3 +21,4 @@ export const cards = [
     benefits: ["Medical benefits", "No late fee"],
   }
 ];
+
