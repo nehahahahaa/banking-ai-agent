@@ -5,11 +5,9 @@ import { Send, X, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { handleChatQuery } from "@/lib/utils/handleChatQuery"
+import { handleChatQuery } from "@/lib/utils/handleChatQuery" // keep for fallback to your older helper
 import { cards } from "@/lib/utils/cardsData"
-
-
-
+import { askAI, ChatSlots } from "@/lib/utils/askAI"
 
 interface Message {
   id: string
@@ -33,33 +31,54 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  // conversational slot state (starts with whatever parent knows)
+  const [slots, setSlots] = useState<ChatSlots>({
+    income: userContext?.income ?? null,
+    age: userContext?.age ?? null,
+    employment: userContext?.employment ?? null,
+    preference: userContext?.preference ?? null,
+    hasCosigner: null,
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-    }
-
+    const text = input.trim()
+    const userMessage: Message = { id: Date.now().toString(), role: "user", content: text }
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
 
-    // Use AI agent logic (local scoring logic for now)
-    const reply = handleChatQuery(input.trim(), userContext, cards)
+    try {
+      // Try slot-filling + engine via API
+      const data = await askAI(text, slots)
+      setSlots(data.slots)
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: reply,
-    }
-
-    setTimeout(() => {
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.reply,
+      }
       setMessages((prev) => [...prev, assistantMessage])
+    } catch {
+      // Fallback to your older local logic (simple)
+      const reply = handleChatQuery(text, {
+        income: Number(slots.income ?? 0),
+        age: Number(slots.age ?? 0),
+        employment: String(slots.employment ?? ""),
+        preference: slots.preference ?? null,
+      } as any, cards)
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: reply,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+    } finally {
       setIsLoading(false)
-    }, 600) // simulate typing delay
+    }
   }
 
   if (!isOpen) {
@@ -90,9 +109,11 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
-              }`}>
+              <div
+                className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
+                  message.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+                }`}
+              >
                 {message.content}
               </div>
             </div>
