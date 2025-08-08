@@ -9,6 +9,7 @@ import { cards as defaultCards } from "@/lib/utils/cardsData"
 export default function Page() {
   const [result, setResult] = useState<any>(null)
 
+  // Always pass an array to the table (prevents Vercel prerender errors)
   const safeRecommended =
     Array.isArray(result?.recommendedCards)
       ? result!.recommendedCards
@@ -18,6 +19,7 @@ export default function Page() {
 
   return (
     <div className="max-w-7xl mx-auto p-6">
+      {/* Heading */}
       <div className="text-center mt-10">
         <h1 className="text-3xl font-bold text-blue-800">Find Your Perfect Credit Card</h1>
         <p className="mt-2 text-gray-600">
@@ -25,22 +27,29 @@ export default function Page() {
         </p>
       </div>
 
+      {/* Card Comparison */}
       <div className="mt-10">
         <CardComparisonTable
+          // Keeping this prop to avoid changing current behavior (even if unused by the table)
           userContext={result?.userContext || { income: 0, age: 0, employment: "", preference: null }}
-          cards={defaultCards}                        {/* <- never an object rendered */}
-          recommendedCards={safeRecommended}          {/* <- guaranteed array */}
+          // Ensure cards is always an array (static prerender safe)
+          cards={defaultCards}
+          // Ensure recommendedCards is always an array
+          recommendedCards={safeRecommended}
         />
       </div>
 
+      {/* Eligibility Form */}
       <div className="mt-10">
         <EligibilityForm onSubmit={setResult} setLanguage={() => {}} />
       </div>
 
+      {/* FAQ Section */}
       <div className="mt-10">
         <FaqSection language="en" />
       </div>
 
+      {/* Floating Chat */}
       <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
         Chat with Assistant
       </div>
