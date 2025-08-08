@@ -20,7 +20,11 @@ export default function Page() {
 
       {/* ✅ Always show the card comparison table */}
       <div className="mt-10">
-        <CardComparisonTable userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }} />
+        <CardComparisonTable
+  cards={result?.cards || []}
+  recommendedCards={result?.recommendedCards || []}
+/>
+
       </div>
 
       {/* Eligibility Form */}
