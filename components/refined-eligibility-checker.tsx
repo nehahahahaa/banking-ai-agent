@@ -1,10 +1,10 @@
-
 "use client"
 
 import { useState } from "react"
 import { CheckCircle } from "lucide-react"
-import { cards } from "@/lib/utils/cardsData"
-import { handleChatQuery } from "@/lib/utils/scoreCard"
+import { cards } from "../lib/utils/cardsData"
+import { handleChatQuery } from "../lib/utils/scoreCard"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -30,6 +30,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     }
 
     const response = handleChatQuery(context)
+
     const matchedCards = response.recommendedCards?.map((name: string) =>
       cards.find((c) => c.name === name)
     ) || []
@@ -44,16 +45,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     setEmployment("")
     setSubmitted(false)
     setResult(null)
-
-    // send blank context to parent → clears table highlights
-    onSubmit({
-      userContext: { income: 0, age: 0, employment: "", preference: null },
-      type: null,
-      recommendedCards: [],
-      reasons: [],
-      failures: [],
-      message: "",
-    })
+    onSubmit({ userContext: { income: 0, age: 0, employment: "", preference: null }, recommendedCards: [] })
   }
 
   return (
@@ -107,24 +99,24 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           </div>
         </div>
 
-        <div className="flex gap-4 mt-6">
+        <div className="flex gap-4">
           <button
             type="submit"
-            className="flex-1 bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
+            className="mt-6 flex-1 bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
           >
             Check Eligibility
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="flex-1 bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+            className="mt-6 flex-1 bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
           >
             Reset
           </button>
         </div>
       </form>
 
-      {/* ✅ Match results boxes */}
+      {/* ✅ Green Box – Full or Multiple Match */}
       {submitted && result?.type === "full-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
@@ -149,6 +141,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
+      {/* ⚠️ Yellow Box – Partial Match */}
       {submitted && result?.type === "partial-match" && (
         <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
@@ -161,6 +154,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
+      {/* ❌ Red Box – No Match */}
       {submitted && result?.type === "no-match" && (
         <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
