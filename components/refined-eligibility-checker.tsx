@@ -1,87 +1,66 @@
 "use client";
-
 import React, { useState } from "react";
-import { scoreCard } from "@/utils/scoreCard";
-import { cards } from "@/data/cards";
-import { CardComparisonTable } from "@/components/card-comparison-table";
+import { cards } from "../data/cards";
+import { scoreCard } from "../utils/scoreCard";
+import { CardComparisonTable } from "./card-comparison-table";
 
 export const EligibilityForm: React.FC = () => {
   const [income, setIncome] = useState("");
   const [age, setAge] = useState("");
   const [employmentType, setEmploymentType] = useState("");
   const [recommendedCards, setRecommendedCards] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
 
   const handleCheck = () => {
     const user = {
-      income: Number(income),
+      minIncome: Number(income),
       age: Number(age),
       employmentType: employmentType.toLowerCase(),
     };
 
-    const eligible = cards.filter((card) => {
-      const { score } = scoreCard(card, user);
-      return score > 0;
-    });
+    const results = cards
+      .map((card) => ({
+        card,
+        ...scoreCard(card, user),
+      }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score);
 
-    setRecommendedCards(eligible.map((c) => c.name));
+    if (results.length === 0) {
+      setMessage(
+        "No card matches your inputs right now. Try adjusting income or employment type to see more options."
+      );
+      setRecommendedCards([]);
+      return;
+    }
+
+    if (results.length === 1) {
+      setMessage(
+        `Based on your inputs, you may be eligible for the ${results[0].card.name}.`
+      );
+      setRecommendedCards([results[0].card.name]);
+      return;
+    }
+
+    setMessage(
+      `You qualify for multiple cards. We recommend the ${results[0].card.name} as the best fit based on your profile.`
+    );
+    setRecommendedCards(results.map((r) => r.card.name));
   };
 
   const handleReset = () => {
     setIncome("");
     setAge("");
     setEmploymentType("");
-    setRecommendedCards([]); // Clears highlights in the table
+    setRecommendedCards([]); // removes highlight
+    setMessage("");
   };
 
   return (
-    <div className="space-y-6">
-      {/* Input Row */}
-      <div className="flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-sm font-medium">Monthly Income</label>
-          <input
-            type="number"
-            value={income}
-            onChange={(e) => setIncome(e.target.value)}
-            className="border p-2 rounded w-48"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Your Age</label>
-          <input
-            type="number"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            className="border p-2 rounded w-32"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Employment Type</label>
-          <input
-            type="text"
-            value={employmentType}
-            onChange={(e) => setEmploymentType(e.target.value)}
-            className="border p-2 rounded w-48"
-          />
-        </div>
-
-        {/* Buttons in same row */}
-        <button
-          onClick={handleCheck}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Check Eligibility
-        </button>
-        <button
-          onClick={handleReset}
-          className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
-        >
-          Reset
-        </button>
-      </div>
-
-      {/* Pass recommended cards to table */}
-      <CardComparisonTable recommendedCards={recommendedCards} />
-    </div>
-  );
-};
+    <div className="p-4 border rounded-md bg-white">
+      <div className="flex gap-4 mb-4">
+        <input
+          type="number"
+          placeholder="Monthly Income"
+          value={income}
+          onChang
