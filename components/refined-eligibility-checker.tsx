@@ -1,66 +1,170 @@
-"use client";
-import React, { useState } from "react";
-import { cards } from "../data/cards";
-import { scoreCard } from "../utils/scoreCard";
-import { CardComparisonTable } from "./card-comparison-table";
+"use client"
 
-export const EligibilityForm: React.FC = () => {
-  const [income, setIncome] = useState("");
-  const [age, setAge] = useState("");
-  const [employmentType, setEmploymentType] = useState("");
-  const [recommendedCards, setRecommendedCards] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
+import { useState } from "react"
+import { CheckCircle } from "lucide-react"
+import { cards } from "../lib/utils/cardsData"
+import { handleChatQuery } from "../lib/utils/scoreCard"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
-  const handleCheck = () => {
-    const user = {
-      minIncome: Number(income),
+interface EligibilityFormProps {
+  onSubmit: (result: any) => void
+  setLanguage: (lang: string) => void
+}
+
+export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps) {
+  const [income, setIncome] = useState("")
+  const [age, setAge] = useState("")
+  const [employment, setEmployment] = useState("")
+  const [submitted, setSubmitted] = useState(false)
+  const [result, setResult] = useState<any>(null)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitted(true)
+
+    const context = {
+      income: Number(income),
       age: Number(age),
-      employmentType: employmentType.toLowerCase(),
-    };
-
-    const results = cards
-      .map((card) => ({
-        card,
-        ...scoreCard(card, user),
-      }))
-      .filter((r) => r.score > 0)
-      .sort((a, b) => b.score - a.score);
-
-    if (results.length === 0) {
-      setMessage(
-        "No card matches your inputs right now. Try adjusting income or employment type to see more options."
-      );
-      setRecommendedCards([]);
-      return;
+      employment: employment.toLowerCase(),
+      preference: null,
     }
 
-    if (results.length === 1) {
-      setMessage(
-        `Based on your inputs, you may be eligible for the ${results[0].card.name}.`
-      );
-      setRecommendedCards([results[0].card.name]);
-      return;
-    }
+    const response = handleChatQuery(context)
 
-    setMessage(
-      `You qualify for multiple cards. We recommend the ${results[0].card.name} as the best fit based on your profile.`
-    );
-    setRecommendedCards(results.map((r) => r.card.name));
-  };
+    const matchedCards = response.recommendedCards?.map((name: string) =>
+      cards.find((c) => c.name === name)
+    ) || []
+
+    setResult({ ...response, recommendedCards: matchedCards })
+    onSubmit({ userContext: context, ...response })
+  }
 
   const handleReset = () => {
-    setIncome("");
-    setAge("");
-    setEmploymentType("");
-    setRecommendedCards([]); // removes highlight
-    setMessage("");
-  };
+    setIncome("")
+    setAge("")
+    setEmployment("")
+    setSubmitted(false)
+    setResult(null)
+    onSubmit({ userContext: { income: 0, age: 0, employment: "", preference: null }, recommendedCards: [] })
+  }
 
   return (
-    <div className="p-4 border rounded-md bg-white">
-      <div className="flex gap-4 mb-4">
-        <input
-          type="number"
-          placeholder="Monthly Income"
-          value={income}
-          onChang
+    <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2 mb-2 text-green-700">
+        <CheckCircle className="w-5 h-5" />
+        <h2 className="text-md font-semibold">Check Your Eligibility</h2>
+      </div>
+      <p className="text-sm text-gray-600 mb-6">
+        Get personalized card recommendations in just a few steps
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Monthly Income (USD)</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              placeholder="Please enter your income"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Your Age</label>
+            <input
+              type="number"
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder="Please enter your age"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Employment Type</label>
+            <select
+              className="mt-1 block w-full p-2 border border-gray-300 rounded"
+              value={employment}
+              onChange={(e) => setEmployment(e.target.value)}
+              required
+            >
+              <option value="" disabled>None</option>
+              <option value="salaried">Salaried</option>
+              <option value="self-employed">Self-employed</option>
+              <option value="student">Student</option>
+              <option value="retired">Retired</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            className="mt-6 flex-1 bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
+          >
+            Check Eligibility
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="mt-6 flex-1 bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+
+      {/* ✅ Green Box – Full or Multiple Match */}
+      {submitted && result?.type === "full-match" && (
+        <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
+          <p>{result.message}</p>
+          <ul className="list-disc list-inside mt-2">
+            {result.recommendedCards.map((card: any, i: number) => (
+              <li key={i}>{card.name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {submitted && result?.type === "multiple-match" && (
+        <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
+          <p>{result.message}</p>
+          <ul className="list-disc list-inside mt-2">
+            {result.recommendedCards.map((card: any, i: number) => (
+              <li key={i}>{card.name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ⚠️ Yellow Box – Partial Match */}
+      {submitted && result?.type === "partial-match" && (
+        <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
+          <p>{result.message}</p>
+          <ul className="list-disc list-inside mt-2">
+            {result.failures.map((fail: string, i: number) => (
+              <li key={i}>{fail}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ❌ Red Box – No Match */}
+      {submitted && result?.type === "no-match" && (
+        <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
+          <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
+          <p>
+            Try adjusting income, age, or employment type to see more options.
+            You can also <strong>connect with a banking specialist</strong> for personalized guidance.
+          </p>
+          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong> to speak with an agent.</p>
+        </div>
+      )}
+    </div>
+  )
+}
