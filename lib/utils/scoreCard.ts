@@ -127,3 +127,4 @@ export function handleChatQuery(user: UserInfo) {
     message: "No card matches your inputs right now. Try adjusting income or employment type to see more options.",
   }
 }
+
