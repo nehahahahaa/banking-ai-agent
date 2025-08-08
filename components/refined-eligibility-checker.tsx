@@ -28,28 +28,23 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
       age: Number(age),
       employment: employment.toLowerCase(),
       preference: null,
-      // 🔑 pass-through: scoreCard already reads user.hasCosigner if present
-      hasCosigner,
+      hasCosigner, // pass through to scoreCard
     }
 
     const response = handleChatQuery(context)
 
-    // Map names → card objects so the table can highlight
+    // names -> objects (for table highlight)
     const matchedCards =
       response.recommendedCards?.map((name: string) => cards.find(c => c.name === name)) || []
 
-    // For the green box: tweak message if student is recommended with cosigner
+    // Student-specific copy when approving with cosigner (under 21 + low income)
     const recommendsStudent = matchedCards.some(c => c?.name === "Student Saver Card")
     const useCosignerMsg =
-      recommendsStudent &&
-      hasCosigner &&
-      context.age < 21 &&
-      context.income < 500
+      recommendsStudent && hasCosigner && context.age < 21 && context.income < 500
 
-    const message =
-      useCosignerMsg
-        ? "Recommended with Cosigner — Student Saver Card fits your profile with a qualified cosigner."
-        : response.message
+    const message = useCosignerMsg
+      ? "Recommended with Cosigner — Student Saver Card fits your profile with a qualified cosigner."
+      : response.message
 
     setResult({ ...response, recommendedCards: matchedCards, message })
     onSubmit({ userContext: context, ...response, recommendedCards: matchedCards, message })
@@ -63,7 +58,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     setSubmitted(false)
     setResult(null)
 
-    // Clear highlights/results upstream
+    // Clear table highlight/results upstream
     onSubmit({
       userContext: { income: 0, age: 0, employment: "", preference: null },
       recommendedCards: [],
@@ -75,6 +70,13 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
   }
 
   const showCosigner = employment.toLowerCase() === "student"
+
+  // ✅ Only add a tiny UI tag; no logic change
+  const showCosignerTag =
+    hasCosigner &&
+    employment.toLowerCase() === "student" &&
+    Number(age) < 21 &&
+    Number(income) < 500
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6 mt-10 max-w-4xl mx-auto">
@@ -160,32 +162,43 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       </form>
 
-      {/* ✅ Green Box – Full or Multiple Match */}
+      {/* ✅ Green Box – Full match */}
       {submitted && result?.type === "full-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>
+                {card.name}
+                {card.name === "Student Saver Card" && showCosignerTag && (
+                  <span className="ml-2 text-xs font-medium text-blue-600">(with cosigner)</span>
+                )}
+              </li>
             ))}
           </ul>
         </div>
       )}
 
+      {/* ✅ Green Box – Multiple matches */}
       {submitted && result?.type === "multiple-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>
+                {card.name}
+                {card.name === "Student Saver Card" && showCosignerTag && (
+                  <span className="ml-2 text-xs font-medium text-blue-600">(with cosigner)</span>
+                )}
+              </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* ⚠️ Yellow Box – Partial Match */}
+      {/* ⚠️ Yellow Box – Partial match */}
       {submitted && result?.type === "partial-match" && (
         <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
@@ -198,13 +211,11 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
-      {/* ❌ Red Box – No Match */}
+      {/* ❌ Red Box – No match */}
       {submitted && result?.type === "no-match" && (
         <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
-          <p>
-            Try adjusting income, age, or employment type to see more options.
-          </p>
+          <p>Try adjusting income, age, or employment type to see more options.</p>
         </div>
       )}
     </div>
