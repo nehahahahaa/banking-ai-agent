@@ -44,44 +44,54 @@ export function CardComparisonTable({
         return (
           <div
             key={idx}
-            className={`p-6 rounded-xl border transition-all ${
+            className={`rounded-xl border transition-all ${
               isHighlighted
                 ? "border-2 border-blue-500 shadow-lg"
                 : "border border-gray-300"
             }`}
           >
-            <h3 className="text-lg font-semibold mb-2 flex items-center justify-between">
-              {card.name}
+            {/* Header bar — brighter when highlighted */}
+            <div
+              className={`rounded-t-xl px-6 py-4 flex items-center justify-between ${
+                isHighlighted ? "bg-blue-100" : "bg-blue-50"
+              }`}
+            >
+              <h3 className="text-lg font-semibold text-gray-800">{card.name}</h3>
               {isHighlighted && (
                 <span className="bg-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded">
                   Recommended
                 </span>
               )}
-            </h3>
+            </div>
 
-            <p className="text-sm mb-1">
-              <strong>Features:</strong> Standard Benefits
-            </p>
-            <p className="text-sm mb-1">
-              <strong>Min Income:</strong> ${card.minIncome}
-            </p>
-            <p className="text-sm mb-1">
-              <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
-            </p>
-            <p className="text-sm mb-3">
-              <strong>Employment:</strong> {card.employmentTypes.join(", ")}
-            </p>
+            <div className="p-6 space-y-2">
+              <p className="text-sm text-gray-700">
+                <strong>Features:</strong> Standard Benefits
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Min Income:</strong> ${card.minIncome}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Age Range:</strong> {card.eligibleAges[0]} – {card.eligibleAges[1]}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Employment:</strong> {card.employmentTypes.join(", ")}
+              </p>
 
-            {isHighlighted && reasons.length > 0 && (
-              <div className="mt-3">
-                <p className="text-blue-600 font-medium">Why we recommend this:</p>
-                <ul className="list-disc list-inside text-sm text-blue-600">
-                  {reasons.map((r, i) => (
-                    <li key={i}>✓ {r}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {isHighlighted && reasons.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-1 text-blue-600">
+                    Why we recommend this:
+                  </p>
+                  {/* No bullets; just ticks */}
+                  <ul className="text-sm text-blue-600 space-y-1">
+                    {reasons.map((r, i) => (
+                      <li key={i}>✓ {r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         )
       })}
