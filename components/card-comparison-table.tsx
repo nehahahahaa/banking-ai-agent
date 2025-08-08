@@ -20,10 +20,12 @@ export function CardComparisonTable({
   recommendedCards = [],
   userContext,
 }: CardComparisonTableProps) {
+  // Which cards are highlighted
   const highlightedNames = new Set(
     (recommendedCards || []).map((c) => c?.name).filter(Boolean) as string[]
   )
 
+  // Ensure we print only one ✓ per reason
   const cleanReason = (r: string) => r.replace(/^✓\s*/i, "").trim()
 
   return (
@@ -31,6 +33,7 @@ export function CardComparisonTable({
       {cards.map((card, idx) => {
         const isHighlighted = highlightedNames.has(card.name)
 
+        // Recompute reasons only for highlighted cards
         const reasons =
           isHighlighted && userContext
             ? scoreCard(card, {
@@ -55,7 +58,14 @@ export function CardComparisonTable({
               }`}
             >
               <div className="flex items-center gap-2">
-                {isHighlighted && <CheckCircle className="w-5 h-5 text-blue-600" />}
+                {/* ✅ Inline tick icon — only when highlighted */}
+                {isHighlighted && (
+                  <CheckCircle
+                    className="w-5 h-5 text-blue-600"
+                    aria-hidden="true"
+                    focusable="false"
+                  />
+                )}
                 <h3 className="text-lg font-semibold text-gray-800">{card.name}</h3>
               </div>
 
@@ -85,6 +95,7 @@ export function CardComparisonTable({
                   <p className="text-sm font-medium mb-1 text-blue-600">
                     Why we recommend this:
                   </p>
+                  {/* No bullets; just ticks */}
                   <ul className="text-sm text-blue-600 space-y-1">
                     {reasons.map((r, i) => (
                       <li key={i}>✓ {r}</li>
