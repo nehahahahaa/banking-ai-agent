@@ -20,10 +20,14 @@ export default function Page() {
 
       {/* ✅ Always show the card comparison table */}
       <div className="mt-10">
-        <CardComparisonTable
-  cards={result?.cards || []}
+     import { cards } from "@/lib/utils/cardsData"
+
+<CardComparisonTable
+  userContext={result?.userContext || { income: 0, age: 0, employment: '', preference: null }}
+  cards={cards}
   recommendedCards={result?.recommendedCards || []}
 />
+
 
       </div>
 
