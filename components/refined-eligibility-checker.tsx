@@ -149,7 +149,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
             >
               <option value="" disabled>None</option>
               <option value="salaried">Salaried</option>
-              <option value="self-employed">Self-employed</option>
+              
               <option value="student">Student</option>
               <option value="retired">Retired</option>
             </select>
