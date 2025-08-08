@@ -1,5 +1,3 @@
-
-
 import { Card } from "./cardsData"
 import { UserInfo } from "./userTypes"
 import { cards } from "./cardsData"
@@ -35,9 +33,39 @@ export const scoreCard = (
     failures.push("✗ Employment type not eligible")
   }
 
+  /* ──────────────────────────────────────────────────────────────
+     Added realistic rules for Student Saver Card (no other changes)
+     ────────────────────────────────────────────────────────────── */
+  try {
+    const isStudentCard = card.name === "Student Saver Card"
+    const isStudentUser = normalizedEmployment === "student"
+    const under21 = user.age < 21
+    // if you later add this to the UI, it will be honored automatically
+    const hasCosigner = (user as any).hasCosigner === true
+
+    // 1) If a student reports high income, steer away from the student card
+    //    (typical ceiling ~ $3k/mo for student products; tweak if needed)
+    if (isStudentCard && isStudentUser && user.income > 3000) {
+      score = 0
+      reasons.length = 0
+      failures.push("✗ Income higher than typical for student product; consider a standard card")
+    }
+
+    // 2) Under-21 must show independent income OR have a cosigner
+    if (isStudentCard && isStudentUser && under21 && user.income < 500 && !hasCosigner) {
+      score = 0
+      reasons.length = 0
+      failures.push("✗ Under 21 without sufficient income; add a cosigner or consider a secured card")
+    }
+  } catch {
+    // fail safe: ignore if any optional property access throws
+  }
+  /* ────────────────────────────────────────────────────────────── */
+
   return { score, reasons, failures }
 }
 
+// ✅ unchanged
 export function handleChatQuery(user: UserInfo) {
   const scoredCards = cards.map(card => {
     const result = scoreCard(card, user)
