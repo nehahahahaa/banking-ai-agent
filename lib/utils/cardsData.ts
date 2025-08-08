@@ -17,7 +17,7 @@ export const cards = [
     name: "Prime Life Card",
     minIncome: 10000,
     eligibleAges: [55, 80],
-    employmentTypes: ["retired", "self-employed"], // added self-employed
+    employmentTypes: ["retired", "self-employed"], // kept self-employed
     benefits: ["Medical benefits", "No late fee"],
   }
 ];
