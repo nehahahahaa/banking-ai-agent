@@ -35,13 +35,21 @@ export const scoreCard = (
 
   // Student-specific extra logic
   if (card.name === "Student Essentials Card" && normalizedEmployment === "student") {
-    if (user.age >= 18 && user.age <= 25) {
-      if (user.income === 0 || user.income < 10000) {
-        score += 1
-        reasons.push("✓ Eligible as a student")
-      } else {
-        failures.push("✗ Income unusually high for student — may require additional checks")
-      }
+    const under21 = user.age < 21
+    const hasCosigner = (user as any).hasCosigner === true
+
+    // High-income students → not eligible for Student Essentials
+    if (user.income > 3000) {
+      score = 0
+      reasons.length = 0
+      failures.push("✗ Income higher than typical for student product; consider a standard card")
+    }
+
+    // Under-21 with low income and no cosigner → not eligible
+    if (under21 && user.income < 500 && !hasCosigner) {
+      score = 0
+      reasons.length = 0
+      failures.push("✗ Under 21 without sufficient income; add a cosigner or consider a secured card")
     }
   }
 
