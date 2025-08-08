@@ -4,7 +4,6 @@ import { useState } from "react"
 import { CheckCircle } from "lucide-react"
 import { cards } from "../lib/utils/cardsData"
 import { handleChatQuery } from "../lib/utils/scoreCard"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 
 interface EligibilityFormProps {
   onSubmit: (result: any) => void
@@ -31,12 +30,15 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
 
     const response = handleChatQuery(context)
 
-    const matchedCards = response.recommendedCards?.map((name: string) =>
-      cards.find((c) => c.name === name)
-    ) || []
+    // Map names -> full card objects for the table highlight
+    const matchedCards =
+      response.recommendedCards?.map((name: string) => cards.find((c) => c.name === name)) || []
 
+    // Show nice list in the green/yellow/red boxes
     setResult({ ...response, recommendedCards: matchedCards })
-    onSubmit({ userContext: context, ...response })
+
+    // 🔧 IMPORTANT: send matchedCards (objects) to the parent so the table can highlight
+    onSubmit({ userContext: context, ...response, recommendedCards: matchedCards })
   }
 
   const handleReset = () => {
@@ -45,7 +47,16 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     setEmployment("")
     setSubmitted(false)
     setResult(null)
-    onSubmit({ userContext: { income: 0, age: 0, employment: "", preference: null }, recommendedCards: [] })
+
+    // Also clear table highlights
+    onSubmit({
+      userContext: { income: 0, age: 0, employment: "", preference: null },
+      recommendedCards: [],
+      type: null,
+      reasons: [],
+      failures: [],
+      message: "",
+    })
   }
 
   return (
@@ -160,9 +171,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
           <p>
             Try adjusting income, age, or employment type to see more options.
-            You can also <strong>connect with a banking specialist</strong> for personalized guidance.
           </p>
-          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong> to speak with an agent.</p>
         </div>
       )}
     </div>
