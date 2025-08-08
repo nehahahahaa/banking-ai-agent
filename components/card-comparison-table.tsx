@@ -1,47 +1,49 @@
 import React from "react";
-import { cards } from "@/data/cards";
-import { CheckCircleIcon } from "@heroicons/react/24/solid";
+import { Card } from "../data/cards";
 
-interface Props {
-  recommendedCards?: string[];
+interface CardComparisonTableProps {
+  cards: Card[];
+  recommendedCards: string[];
 }
 
-export const CardComparisonTable: React.FC<Props> = ({ recommendedCards = [] }) => {
+export const CardComparisonTable: React.FC<CardComparisonTableProps> = ({
+  cards,
+  recommendedCards,
+}) => {
   return (
-    <div className="overflow-x-auto border rounded-lg">
-      <table className="min-w-full border-collapse">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border px-4 py-2">Card Name</th>
-            <th className="border px-4 py-2">Min Income</th>
-            <th className="border px-4 py-2">Eligible Ages</th>
-            <th className="border px-4 py-2">Employment Types</th>
-            <th className="border px-4 py-2">Benefits</th>
+    <div className="overflow-x-auto mt-6">
+      <table className="min-w-full border border-gray-300">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-3 text-left">Card Name</th>
+            <th className="p-3 text-left">Min Income</th>
+            <th className="p-3 text-left">Eligible Ages</th>
+            <th className="p-3 text-left">Employment Types</th>
+            <th className="p-3 text-left">Benefits</th>
           </tr>
         </thead>
         <tbody>
           {cards.map((card) => {
-            const isHighlighted =
-              Array.isArray(recommendedCards) &&
-              recommendedCards.includes(card.name);
-
+            const isHighlighted = recommendedCards.includes(card.name);
             return (
               <tr
                 key={card.name}
-                className={isHighlighted ? "bg-blue-50 border-l-4 border-blue-500" : ""}
+                className={`border-t ${isHighlighted ? "border-4 border-blue-500" : ""}`}
               >
-                <td className="border px-4 py-2 flex items-center gap-2">
+                <td className="p-3 font-medium flex items-center gap-2">
                   {card.name}
                   {isHighlighted && (
-                    <span className="bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircleIcon className="h-4 w-4" /> Recommended
+                    <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                      Recommended
                     </span>
                   )}
                 </td>
-                <td className="border px-4 py-2">{card.minIncome}</td>
-                <td className="border px-4 py-2">{card.eligibleAges.join(" - ")}</td>
-                <td className="border px-4 py-2">{card.employmentTypes.join(", ")}</td>
-                <td className="border px-4 py-2">{card.benefits.join(", ")}</td>
+                <td className="p-3">${card.minIncome.toLocaleString()}</td>
+                <td className="p-3">
+                  {card.eligibleAges[0]} - {card.eligibleAges[1]}
+                </td>
+                <td className="p-3">{card.employmentTypes.join(", ")}</td>
+                <td className="p-3">{card.benefits.join(", ")}</td>
               </tr>
             );
           })}
