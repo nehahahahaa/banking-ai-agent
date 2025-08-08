@@ -5,7 +5,7 @@ import type { Card as CardType } from "../lib/utils/cardsData"
 
 interface CardComparisonTableProps {
   cards?: CardType[]
-  recommendedCards?: CardType[]   // from EligibilityForm (array of cards)
+  recommendedCards?: CardType[]   // array of full card objects
   userContext?: {
     income: number
     age: number
@@ -19,23 +19,26 @@ export function CardComparisonTable({
   recommendedCards = [],
   userContext,
 }: CardComparisonTableProps) {
-  // Build a quick lookup for which cards should be highlighted
+  // Names of cards to highlight
   const highlightedNames = new Set(
     (recommendedCards || []).map((c) => c?.name).filter(Boolean) as string[]
   )
 
+  // Ensure we print only one ✓ per reason
+  const cleanReason = (r: string) => r.replace(/^✓\s*/i, "").trim()
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
       {cards.map((card, idx) => {
         const isHighlighted = highlightedNames.has(card.name)
 
-        // Recompute reasons ONLY for highlighted cards (so the list shows)
+        // Recompute reasons only for highlighted cards
         const reasons =
           isHighlighted && userContext
             ? scoreCard(card, {
                 ...userContext,
                 employment: (userContext.employment || "").toLowerCase(),
-              }).reasons
+              }).reasons.map(cleanReason)
             : []
 
         return (
