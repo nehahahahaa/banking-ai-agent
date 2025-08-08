@@ -5,17 +5,13 @@ import { CheckCircle } from "lucide-react"
 import { cards } from "@/lib/utils/cardsData"
 import { handleChatQuery } from "@/lib/utils/scoreCard"
 
-interface EligibilityFormProps {
-  onSubmit: (result: any) => void
-  setLanguage: (lang: string) => void
-}
-
-export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps) {
+export default function RefinedEligibilityChecker() {
   const [income, setIncome] = useState("")
   const [age, setAge] = useState("")
   const [employment, setEmployment] = useState("")
-  const [submitted, setSubmitted] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [submitted, setSubmitted] = useState(false)
+  const [highlightedCards, setHighlightedCards] = useState<string[]>([])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,30 +25,18 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
     }
 
     const response = handleChatQuery(context)
-    const matchedCards = response.recommendedCards?.map((name: string) =>
-      cards.find((c) => c.name === name)
-    ) || []
 
-    setResult({ ...response, recommendedCards: matchedCards })
-    onSubmit({ userContext: context, ...response })
+    setResult(response)
+    setHighlightedCards(response.recommendedCards || [])
   }
 
   const handleReset = () => {
     setIncome("")
     setAge("")
     setEmployment("")
-    setSubmitted(false)
     setResult(null)
-
-    // send blank context to parent → clears table highlights
-    onSubmit({
-      userContext: { income: 0, age: 0, employment: "", preference: null },
-      type: null,
-      recommendedCards: [],
-      reasons: [],
-      failures: [],
-      message: "",
-    })
+    setSubmitted(false)
+    setHighlightedCards([]) // removes highlight and tag
   }
 
   return (
@@ -106,48 +90,51 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
           </div>
         </div>
 
-        <div className="flex gap-4 mt-6">
+        {/* Buttons in the same row */}
+        <div className="flex gap-4">
           <button
             type="submit"
-            className="flex-1 bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
+            className="w-full bg-blue-700 text-white font-semibold py-2 px-4 rounded hover:bg-blue-800 transition"
           >
             Check Eligibility
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="flex-1 bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+            className="w-full bg-gray-300 text-black font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
           >
             Reset
           </button>
         </div>
       </form>
 
-      {/* ✅ Match results boxes */}
+      {/* ✅ Green Box – Full Match */}
       {submitted && result?.type === "full-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🧠 Builds trust by showing logic clearly</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>{card}</li>
             ))}
           </ul>
         </div>
       )}
 
+      {/* 🟢 Multiple Match */}
       {submitted && result?.type === "multiple-match" && (
         <div className="mt-6 border border-green-500 bg-green-50 text-green-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">🟢 Transparent + ranked choices</p>
           <p>{result.message}</p>
           <ul className="list-disc list-inside mt-2">
             {result.recommendedCards.map((card: any, i: number) => (
-              <li key={i}>{card.name}</li>
+              <li key={i}>{card}</li>
             ))}
           </ul>
         </div>
       )}
 
+      {/* ⚠️ Partial Match */}
       {submitted && result?.type === "partial-match" && (
         <div className="mt-6 border border-yellow-500 bg-yellow-50 text-yellow-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">⚠️ Partial match – explained clearly</p>
@@ -160,6 +147,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
         </div>
       )}
 
+      {/* ❌ No Match */}
       {submitted && result?.type === "no-match" && (
         <div className="mt-6 border border-red-500 bg-red-50 text-red-800 p-4 rounded-xl">
           <p className="font-semibold mb-2">❌ No card matches your inputs right now.</p>
@@ -167,7 +155,7 @@ export function EligibilityForm({ onSubmit, setLanguage }: EligibilityFormProps)
             Try adjusting income, age, or employment type to see more options.
             You can also <strong>connect with a banking specialist</strong> for personalized guidance.
           </p>
-          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong> to speak with an agent.</p>
+          <p className="mt-1">📞 Call us at <strong>1-800-555-BANK</strong></p>
         </div>
       )}
     </div>
