@@ -33,23 +33,21 @@ export const scoreCard = (
     failures.push("✗ Employment type not eligible")
   }
 
-  // Student-specific extra logic
-  if (card.name === "Student Essentials Card" && normalizedEmployment === "student") {
-    const under21 = user.age < 21
+  // ✅ Student rule (simple): 18–25 with income > $5,000 requires a cosigner.
+  //    If income ≤ $5,000, no cosigner needed.
+  if (
+    card.employmentTypes.includes("student") &&
+    normalizedEmployment === "student" &&
+    user.age >= 18 &&
+    user.age <= 25
+  ) {
     const hasCosigner = (user as any).hasCosigner === true
 
-    // High-income students → not eligible for Student Essentials
-    if (user.income > 3000) {
+    if (user.income > 5000 && !hasCosigner) {
+      // Block this student product unless they have a cosigner
       score = 0
       reasons.length = 0
-      failures.push("✗ Income higher than typical for student product; consider a standard card")
-    }
-
-    // Under-21 with low income and no cosigner → not eligible
-    if (under21 && user.income < 500 && !hasCosigner) {
-      score = 0
-      reasons.length = 0
-      failures.push("✗ Under 21 without sufficient income; add a cosigner or consider a secured card")
+      failures.push("✗ For student income above $5,000, a cosigner is required to be eligible.")
     }
   }
 
@@ -84,13 +82,40 @@ export function handleChatQuery(user: UserInfo) {
     }
   }
 
-  if (partialMatchedCards.length > 0) {
+  // 🔸 NEW: Force a yellow "partial-match" when student 18–25 with income > $5k and no cosigner,
+  // even if there are otherwise no partials (would have fallen to red "no-match").
+  const studentNeedsCosigner =
+    user.employment?.toLowerCase() === "student" &&
+    user.age >= 18 &&
+    user.age <= 25 &&
+    user.income > 5000 &&
+    !(user as any).hasCosigner
+
+  if (partialMatchedCards.length > 0 || studentNeedsCosigner) {
+    let failures = partialMatchedCards.flatMap(c => [`${c.name}:`, ...c.failures])
+
+    if (studentNeedsCosigner) {
+      const studentCard = scoredCards.find(c => c.employmentTypes.includes("student"))
+      const studentFailureText =
+        "✗ For student income above $5,000, a cosigner is required to be eligible."
+      if (studentCard) {
+        const block = [`${studentCard.name}:`, ...(studentCard.failures?.length ? studentCard.failures : [studentFailureText])]
+        failures = [...block, ...failures]
+      } else {
+        failures = ["Student Essentials Card:", studentFailureText, ...failures]
+      }
+    }
+
+    const message = studentNeedsCosigner
+      ? "To become eligible for the student card with income above $5,000, please select 'Has cosigner' and try again."
+      : "Some eligibility criteria were not met. Please see the reasons below."
+
     return {
       type: "partial-match",
       recommendedCards: [],
       reasons: [],
-      failures: partialMatchedCards.flatMap(c => [`${c.name}:`, ...c.failures]),
-      message: "Some eligibility criteria were not met. Please see the reasons below.",
+      failures,
+      message,
     }
   }
 
