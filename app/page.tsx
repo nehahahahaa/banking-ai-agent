@@ -5,6 +5,7 @@ import { EligibilityForm } from "@/components/refined-eligibility-checker"
 import { CardComparisonTable } from "@/components/card-comparison-table"
 import { FaqSection } from "@/components/refined-faq-section"
 import { cards as defaultCards } from "@/lib/utils/cardsData"
+import { ChatAssistant } from "@/components/chat-assistant" // ✅ import your chat assistant
 
 export default function Page() {
   const [result, setResult] = useState<any>(null)
@@ -49,10 +50,11 @@ export default function Page() {
         <FaqSection language="en" />
       </div>
 
-      {/* Floating Chat */}
-      <div className="fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg cursor-pointer">
-        Chat with Assistant
-      </div>
+      {/* ✅ Floating Chat Assistant */}
+      <ChatAssistant
+        language="en"
+        userContext={result?.userContext || { income: 0, age: 0, employment: "", preference: null }}
+      />
     </div>
   )
 }
