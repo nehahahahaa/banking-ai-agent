@@ -1,15 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ChatSlots } from "@/lib/utils/askAI";
 
-export default function ChatAssistant() {
+type Props = {
+  language: string;
+  userContext: {
+    income: number;
+    age: number;
+    employment: string;
+    preference: string | null;
+  };
+};
+
+export function ChatAssistant({ language, userContext }: Props) {
   const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([]);
   const [input, setInput] = useState("");
-  const [slots, setSlots] = useState<ChatSlots>({});
+  const [slots, setSlots] = useState<ChatSlots>({
+    income: userContext?.income ?? null,
+    age: userContext?.age ?? null,
+    employment: userContext?.employment ?? null,
+    preference: userContext?.preference ?? null,
+    hasCosigner: null,
+  });
   const [isFirstTurn, setIsFirstTurn] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]); // store first 2 card names from intro
+  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]); // parsed from intro
+
+  const firstBotIndex = useMemo(
+    () => messages.findIndex((m) => m.from === "bot"),
+    [messages]
+  );
 
   const sendMessage = async (msg?: string) => {
     const messageToSend = msg || input.trim();
@@ -28,12 +49,10 @@ export default function ChatAssistant() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Extract first two card names from intro
+      // Extract first two card names from the intro reply (lines like: "Card — perks")
       if (isFirstTurn && data.reply) {
         const matches = [...data.reply.matchAll(/^(.+?) —/gm)].map((m) => m[1]);
-        if (matches.length >= 2) {
-          setFirstTwoCards(matches.slice(0, 2));
-        }
+        if (matches.length >= 2) setFirstTwoCards(matches.slice(0, 2));
       }
 
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
@@ -41,7 +60,10 @@ export default function ChatAssistant() {
       setIsFirstTurn(false);
     } catch (err) {
       console.error("Chat error:", err);
-      setMessages((prev) => [...prev, { from: "bot", text: "⚠️ Something went wrong. Please try again." }]);
+      setMessages((prev) => [
+        ...prev,
+        { from: "bot", text: "⚠️ Something went wrong. Please try again." },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -66,23 +88,26 @@ export default function ChatAssistant() {
             }`}
           >
             {m.text}
-            {/* Show quick actions after first bot intro */}
-            {idx === 0 && m.from === "bot" && firstTwoCards.length === 2 && (
-              <div className="mt-2 flex gap-2">
-                <button
-                  className="px-3 py-1 text-sm bg-green-200 rounded"
-                  onClick={() => handleQuickAction("learn")}
-                >
-                  Learn More
-                </button>
-                <button
-                  className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                  onClick={() => handleQuickAction("compare")}
-                >
-                  Compare Cards
-                </button>
-              </div>
-            )}
+
+            {/* Quick actions on the very first bot message */}
+            {m.from === "bot" &&
+              firstTwoCards.length === 2 &&
+              idx === firstBotIndex && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    className="px-3 py-1 text-sm bg-green-200 rounded"
+                    onClick={() => handleQuickAction("learn")}
+                  >
+                    Learn More
+                  </button>
+                  <button
+                    className="px-3 py-1 text-sm bg-yellow-200 rounded"
+                    onClick={() => handleQuickAction("compare")}
+                  >
+                    Compare Cards
+                  </button>
+                </div>
+              )}
           </div>
         ))}
         {loading && <div className="text-gray-500">Bot is typing...</div>}
