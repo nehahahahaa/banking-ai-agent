@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { askAI, ChatSlots } from "@/lib/utils/askAI"
-import { handleChatQuery } from "@/lib/utils/handleChatQuery" // fallback
+import { handleChatQuery } from "@/lib/utils/handleChatQuery" // fallback only
 import { cards } from "@/lib/utils/cardsData"
 
 interface Message {
@@ -31,7 +31,7 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  // Track conversational slots for eligibility
+  // conversational slots (start with any known context)
   const [slots, setSlots] = useState<ChatSlots>({
     income: userContext?.income ?? null,
     age: userContext?.age ?? null,
@@ -40,35 +40,47 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
     hasCosigner: null,
   })
 
+  // ensure the first bot reply is ALWAYS the intro list
+  const [firstTurnDone, setFirstTurnDone] = useState(false)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
 
     const text = input.trim()
-
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: text,
-    }
-    setMessages((prev) => [...prev, userMessage])
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: text }
+    setMessages((m) => [...m, userMsg])
     setInput("")
     setIsLoading(true)
 
     try {
-      // Call slot-filling AI logic
-      const data = await askAI(text, slots)
-      setSlots(data.slots)
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.reply,
+      if (!firstTurnDone) {
+        // Call the API with firstTurn=true to force the intro
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, slots, firstTurn: true }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        setSlots((s) => ({ ...s, ...(data.slots || {}) }))
+        setMessages((m) => [
+          ...m,
+          { id: (Date.now() + 1).toString(), role: "assistant", content: data.reply },
+        ])
+        setFirstTurnDone(true)
+        return
       }
-      setMessages((prev) => [...prev, assistantMessage])
+
+      // Subsequent turns -> slot-filling route via askAI (recommend, compare, learn more)
+      const data = await askAI(text, slots)
+      if (data?.slots) setSlots(data.slots)
+      setMessages((m) => [
+        ...m,
+        { id: (Date.now() + 1).toString(), role: "assistant", content: data.reply },
+      ])
     } catch {
-      // Fallback to old local handleChatQuery if API fails
+      // Final safety fallback to your local engine (deterministic)
       const reply = handleChatQuery(
         text,
         {
@@ -79,13 +91,10 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
         } as any,
         cards
       )
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: reply,
-      }
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((m) => [
+        ...m,
+        { id: (Date.now() + 2).toString(), role: "assistant", content: reply },
+      ])
     } finally {
       setIsLoading(false)
     }
@@ -111,30 +120,18 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
           <CardTitle className="flex items-center gap-2 text-lg">
             <Bot className="w-5 h-5" /> Banking Assistant
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            className="text-white hover:bg-blue-700"
-          >
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-700">
             <X className="w-4 h-4" />
           </Button>
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
-                  message.role === "user"
-                    ? "bg-blue-800 text-white"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {message.content}
+          {messages.map((m) => (
+            <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`p-3 rounded-lg max-w-[80%] text-sm leading-relaxed ${
+                m.role === "user" ? "bg-blue-800 text-white" : "bg-gray-100 text-gray-800"
+              }`}>
+                {m.content}
               </div>
             </div>
           ))}
@@ -149,11 +146,7 @@ export function ChatAssistant({ language, userContext }: ChatAssistantProps) {
             className="flex-1"
             disabled={isLoading}
           />
-          <Button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-blue-800 hover:bg-blue-900"
-          >
+          <Button type="submit" disabled={isLoading || !input.trim()} className="bg-blue-800 hover:bg-blue-900">
             <Send className="w-4 h-4" />
           </Button>
         </form>
