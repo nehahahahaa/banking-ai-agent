@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cards } from "@/lib/utils/cardsData";
-import { scoreCard, handleChatQuery as runEngine } from "@/lib/utils/scoreCard";
+import { scoreCard, handleChatQuery as runEngine } from "@/lib/utils/scoreCard"; // ✅ Correct import
 
 type Slots = {
   income?: number | null;
@@ -36,21 +36,14 @@ function normalizeEmployment(text: string): string | null {
   return null;
 }
 
-// generic number grabber (used for age)
 function extractNumber(n: string): number | null {
   const m = n.replace(/[,]/g, "").match(/-?\d+(\.\d+)?/);
   return m ? Number(m[0]) : null;
 }
 
-// robust income parser: respects cues and k/m suffixes
 function parseIncomeFromText(t: string): number | null {
   const text = t.toLowerCase().replace(/[,]/g, "").trim();
 
-  // quick cue check
-  const incomeCues = ["income", "$", "usd", "per month", "per year", "salary", "earn", "k"];
-  const hasCue = incomeCues.some((c) => text.includes(c));
-
-  // k/m suffix (e.g., 5k, 7.5k, 0.9m)
   const km = text.match(/(\d+(?:\.\d+)?)\s*([km])\b/);
   if (km) {
     const val = parseFloat(km[1]);
@@ -58,13 +51,14 @@ function parseIncomeFromText(t: string): number | null {
     return Math.round(val * mult);
   }
 
-  // plain money like $4500 or 4500 usd
+  const incomeCues = ["income", "$", "usd", "per month", "per year", "salary", "earn"];
+  const hasCue = incomeCues.some((c) => text.includes(c));
+
   const money = text.match(/\$?\s*(\d+(?:\.\d+)?)\s*(usd)?\b/);
   if (money && hasCue) {
     return Number(money[1]);
   }
 
-  // last resort: if there is a bare number and it's clearly not an age (>= 1000), accept
   const num = extractNumber(text);
   if (num != null && num >= 1000) return num;
 
@@ -101,11 +95,16 @@ function nextMissingSlot(slots: Slots): keyof Slots | null {
 
 function askFor(slot: keyof Slots): string {
   switch (slot) {
-    case "age": return "What is your age?";
-    case "employment": return "What is your employment type? (salaried, self-employed, student, retired)";
-    case "income": return "What is your monthly income (USD)?";
-    case "hasCosigner": return "Do you have a qualified cosigner? (yes/no)";
-    default: return "Tell me about your preference (e.g., travel, cashback, no annual fee), or say 'recommend a card'.";
+    case "age":
+      return "What is your age?";
+    case "employment":
+      return "What is your employment type? (salaried, self-employed, student, retired)";
+    case "income":
+      return "What is your monthly income (USD)?";
+    case "hasCosigner":
+      return "Do you have a qualified cosigner? (yes/no)";
+    default:
+      return "Tell me about your preference (e.g., travel, cashback, no annual fee), or say 'recommend a card'.";
   }
 }
 
@@ -113,25 +112,21 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
   const t = message.toLowerCase();
   const s: Slots = { ...slots };
 
-  // Age: accept small numbers (<=120)
   if (s.age == null) {
     const n = extractNumber(t);
     if (n != null && n >= 0 && n <= 120) s.age = n;
   }
 
-  // Employment
   if (s.employment == null) {
     const emp = normalizeEmployment(t);
     if (emp) s.employment = emp;
   }
 
-  // Income: require cue OR large number, and support k/m suffix
   if (s.income == null) {
     const income = parseIncomeFromText(t);
     if (income != null) s.income = income;
   }
 
-  // Cosigner (student 18–25 & income > 5000)
   if (
     s.hasCosigner == null &&
     s.employment === "student" &&
@@ -145,7 +140,6 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
     if (/\b(no|nope|nah|false)\b/i.test(message)) s.hasCosigner = false;
   }
 
-  // Preference (optional)
   if (s.preference == null) {
     const pref = detectPreference(t);
     if (pref) s.preference = pref;
@@ -167,11 +161,15 @@ function formatIntro() {
 }
 
 function renderEngineReply(engine: any): string {
-  if (engine.type === "full-match") return `🧠 Builds trust by showing logic clearly\n${engine.message}`;
-  if (engine.type === "multiple-match") return `🟢 Transparent + ranked choices\n${engine.message}`;
+  if (engine.type === "full-match") {
+    return `🧠 Builds trust by showing logic clearly\n${engine.message}`;
+  }
+  if (engine.type === "multiple-match") {
+    return `🟢 Transparent + ranked choices\n${engine.message}`;
+  }
   if (engine.type === "partial-match") {
     const failures: string[] = engine.failures || [];
-    let out = [`⚠️ Partial match – explained clearly`, engine.message];
+    const out: string[] = [`⚠️ Partial match – explained clearly`, engine.message];
     let current: string | null = null;
     failures.forEach((line) => {
       if (line.endsWith(":")) {
@@ -199,12 +197,10 @@ export async function POST(req: NextRequest) {
       hasCosigner: incomingSlots?.hasCosigner ?? null,
     };
 
-    // First turn intro
     if (firstTurn) {
       return NextResponse.json({ reply: formatIntro(), slots, done: false });
     }
 
-    // Learn more intent
     if (/learn more/.test(text)) {
       return NextResponse.json({
         reply: "Which card would you like to learn more about? You can say the name or number from the list.",
@@ -226,7 +222,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Compare flow
     const compareMatch = text.match(/compare\s+(.+)\s+vs\s+(.+)/i);
     if (compareMatch) {
       const a = compareMatch[1].trim().toLowerCase();
@@ -253,4 +248,50 @@ export async function POST(req: NextRequest) {
 
       const reply = [
         `⚖️ Comparison for your profile:`,
-        `- **${cardA.name}**: ${resultA.reason
+        `- **${cardA.name}**: ${
+          (resultA.reasons && resultA.reasons.length
+            ? resultA.reasons.join("; ")
+            : resultA.failures.join("; "))
+        }`,
+        `- **${cardB.name}**: ${
+          (resultB.reasons && resultB.reasons.length
+            ? resultB.reasons.join("; ")
+            : resultB.failures.join("; "))
+        }`,
+        (resultA.score > resultB.score)
+          ? `👉 Best for you: **${cardA.name}**`
+          : (resultB.score > resultA.score)
+            ? `👉 Best for you: **${cardB.name}**`
+            : `Both cards are equally suitable based on your profile.`
+      ].join("\n");
+
+      return NextResponse.json({ reply, slots: updatedSlots, done: true });
+    }
+
+    if (text.includes("recommend")) {
+      const updatedSlots = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(updatedSlots);
+      if (missing) {
+        return NextResponse.json({ reply: askFor(missing), slots: updatedSlots, done: false });
+      }
+      const engineResult = runEngine({
+        income: Number(updatedSlots.income),
+        age: Number(updatedSlots.age),
+        employment: String(updatedSlots.employment),
+        preference: updatedSlots.preference ?? null,
+        hasCosigner: updatedSlots.hasCosigner === true,
+      } as any);
+      return NextResponse.json({ reply: renderEngineReply(engineResult), slots: updatedSlots, done: true });
+    }
+
+    return NextResponse.json({
+      reply:
+        "I’m here to help you with cards. Try saying 'recommend a card for me', 'learn more', or 'compare Card A vs Card B'.",
+      slots,
+      done: false,
+    });
+  } catch (err) {
+    console.error("API ERROR:", err);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
