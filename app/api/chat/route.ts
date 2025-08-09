@@ -43,25 +43,20 @@ function extractNumber(n: string): number | null {
 
 function parseIncomeFromText(t: string): number | null {
   const text = t.toLowerCase().replace(/[,]/g, "").trim();
-
   const km = text.match(/(\d+(?:\.\d+)?)\s*([km])\b/);
   if (km) {
     const val = parseFloat(km[1]);
     const mult = km[2] === "k" ? 1_000 : 1_000_000;
     return Math.round(val * mult);
   }
-
   const incomeCues = ["income", "$", "usd", "per month", "per year", "salary", "earn"];
   const hasCue = incomeCues.some((c) => text.includes(c));
-
   const money = text.match(/\$?\s*(\d+(?:\.\d+)?)\s*(usd)?\b/);
   if (money && hasCue) {
     return Number(money[1]);
   }
-
   const num = extractNumber(text);
   if (num != null && num >= 1000) return num;
-
   return null;
 }
 
@@ -111,22 +106,18 @@ function askFor(slot: keyof Slots): string {
 function updateSlotsFromMessage(slots: Slots, message: string): Slots {
   const t = message.toLowerCase();
   const s: Slots = { ...slots };
-
   if (s.age == null) {
     const n = extractNumber(t);
     if (n != null && n >= 0 && n <= 120) s.age = n;
   }
-
   if (s.employment == null) {
     const emp = normalizeEmployment(t);
     if (emp) s.employment = emp;
   }
-
   if (s.income == null) {
     const income = parseIncomeFromText(t);
     if (income != null) s.income = income;
   }
-
   if (
     s.hasCosigner == null &&
     s.employment === "student" &&
@@ -139,12 +130,10 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
     if (/\b(yes|yep|yeah|true)\b/i.test(message)) s.hasCosigner = true;
     if (/\b(no|nope|nah|false)\b/i.test(message)) s.hasCosigner = false;
   }
-
   if (s.preference == null) {
     const pref = detectPreference(t);
     if (pref) s.preference = pref;
   }
-
   return s;
 }
 
@@ -248,16 +237,8 @@ export async function POST(req: NextRequest) {
 
       const reply = [
         `⚖️ Comparison for your profile:`,
-        `- **${cardA.name}**: ${
-          (resultA.reasons && resultA.reasons.length
-            ? resultA.reasons.join("; ")
-            : resultA.failures.join("; "))
-        }`,
-        `- **${cardB.name}**: ${
-          (resultB.reasons && resultB.reasons.length
-            ? resultB.reasons.join("; ")
-            : resultB.failures.join("; "))
-        }`,
+        `- **${cardA.name}**: ${resultA.reasons.length ? resultA.reasons.join("; ") : resultA.failures.join("; ")}`,
+        `- **${cardB.name}**: ${resultB.reasons.length ? resultB.reasons.join("; ") : resultB.failures.join("; ")}`,
         (resultA.score > resultB.score)
           ? `👉 Best for you: **${cardA.name}**`
           : (resultB.score > resultA.score)
@@ -285,8 +266,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      reply:
-        "I’m here to help you with cards. Try saying 'recommend a card for me', 'learn more', or 'compare Card A vs Card B'.",
+      reply: "I’m here to help you with cards. Try saying 'recommend a card for me', 'learn more', or 'compare Card A vs Card B'.",
       slots,
       done: false,
     });
