@@ -1,199 +1,576 @@
-"use client";
+import { NextRequest, NextResponse } from "next/server";
+import { cards } from "@/lib/utils/cardsData";
+import { scoreCard, handleChatQuery as runEngine } from "@/lib/utils/scoreCard";
 
-import React, { useMemo, useState } from "react";
-import { ChatSlots } from "@/lib/utils/askAI";
-
-type Props = {
-  language: string;
-  userContext: {
-    income: number;
-    age: number;
-    employment: string;
-    preference: string | null;
-  };
+/* ========= Types ========= */
+type Slots = {
+  income?: number | null;
+  age?: number | null;
+  employment?: string | null;
+  preference?: string | null;
+  hasCosigner?: boolean | null;
 };
 
-export function ChatAssistant({ language, userContext }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([]);
-  const [input, setInput] = useState("");
-  const [slots, setSlots] = useState<ChatSlots>({
-    income: userContext?.income ?? null,
-    age: userContext?.age ?? null,
-    employment: userContext?.employment ?? null,
-    preference: userContext?.preference ?? null,
-    hasCosigner: null,
-  });
-  const [context, setContext] = useState<any>({});
-  const [firstTurn, setFirstTurn] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]);
-  const [actions, setActions] = useState<string[]>([]); // ["recommend","learn","compare"]
-  const [tip, setTip] = useState<string | null>(null);
+type Context = {
+  mode?: "learn" | "compare" | "recommend";
+  selectedCard?: string;
+  compare?: { a: string; b?: string };
+};
 
-  const firstBotIndex = useMemo(
-    () => messages.findIndex((m) => m.from === "bot"),
-    [messages]
-  );
+/* ========= Helpers ========= */
+const EMPLOYMENT_ALIASES: Record<string, string> = {
+  salaried: "salaried",
+  "full time": "salaried",
+  "full-time": "salaried",
+  employee: "salaried",
+  job: "salaried",
+  student: "student",
+  studying: "student",
+  college: "student",
+  retired: "retired",
+  pension: "retired",
+  self: "self-employed",
+  "self employed": "self-employed",
+  "self-employed": "self-employed",
+  freelance: "self-employed",
+  contractor: "self-employed",
+};
 
-  const sendMessage = async (msg?: string) => {
-    const messageToSend = (msg ?? input).trim();
-    if (!messageToSend) return;
+function normalizeEmployment(text: string): string | null {
+  const t = text.toLowerCase();
+  for (const [k, v] of Object.entries(EMPLOYMENT_ALIASES)) {
+    if (t.includes(k)) return v;
+  }
+  return null;
+}
 
-    setMessages((prev) => [...prev, { from: "user", text: messageToSend }]);
-    setInput("");
-    setLoading(true);
+function extractNumber(n: string): number | null {
+  const m = n.replace(/[,]/g, "").match(/-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+}
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageToSend, slots, firstTurn, context }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+// robust income parser: cues + k/m suffix; avoids confusing age with income
+function parseIncomeFromText(t: string): number | null {
+  const text = t.toLowerCase().replace(/[,]/g, "").trim();
 
-      // Parse first two card names from numbered intro like "1. Card — ..."
-      if (firstTurn && data.reply) {
-        const matches = [...String(data.reply).matchAll(/^\s*\d+\.\s(.+?)\s—/gm)].map((m) => m[1]);
-        if (matches.length >= 2) setFirstTwoCards(matches.slice(0, 2));
-      }
-
-      setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
-      setSlots(data.slots || {});
-      setContext(data.context || {});
-      setActions(Array.isArray(data.actions) ? data.actions : []);
-      setTip(typeof data.tip === "string" ? data.tip : null);
-      setFirstTurn(false);
-    } catch (err) {
-      console.error("Chat error:", err);
-      setMessages((prev) => [...prev, { from: "bot", text: "⚠️ Something went wrong. Please try again." }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickAction = (action: string) => {
-    if (action === "learn") return sendMessage("learn more");
-    if (action === "recommend") return sendMessage("recommend a card for me");
-    if (action === "compare") {
-      // If we already selected a card in learn mode, server handles bare "compare" / "compare with"
-      if (context?.selectedCard) return sendMessage("compare with");
-      // else just start compare flow
-      return sendMessage("compare");
-    }
-    if (action === "apply") return sendMessage("apply now");
-    if (action === "check_eligibility") return sendMessage("Am I eligible?");
-  };
-
-  /* FAB closed state */
-  if (!isOpen) {
-    return (
-      <button
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-800 text-white shadow-lg"
-        onClick={() => setIsOpen(true)}
-        aria-label="Open chat"
-        title="Open chat"
-      >
-        💬
-      </button>
-    );
+  // 5k / 0.9m
+  const km = text.match(/(\d+(?:\.\d+)?)\s*([km])\b/);
+  if (km) {
+    const val = parseFloat(km[1]);
+    const mult = km[2] === "k" ? 1_000 : 1_000_000;
+    return Math.round(val * mult);
   }
 
-  /* Open panel */
-  return (
-    <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
-      <div className="flex items-center justify-between px-4 py-3 bg-blue-800 text-white rounded-t-2xl">
-        <div className="font-semibold">Banking Assistant</div>
-        <button onClick={() => setIsOpen(false)} aria-label="Close chat">✕</button>
-      </div>
+  const cues = ["income", "$", "usd", "per month", "per year", "salary", "earn"];
+  const hasCue = cues.some((c) => text.includes(c));
 
-      <div className="p-4 flex-1 overflow-y-auto space-y-3">
-        {messages.map((m, idx) => (
-          <div
-            key={idx}
-            className={`p-2 rounded-lg max-w-[84%] ${
-              m.from === "user" ? "bg-blue-100 self-end" : "bg-gray-100 self-start"
-            }`}
-          >
-            <div className="whitespace-pre-wrap">{m.text}</div>
+  const money = text.match(/\$?\s*(\d+(?:\.\d+)?)\s*(usd)?\b/);
+  if (money && hasCue) return Number(money[1]);
 
-            {/* Show quick actions on the FIRST bot message */}
-            {m.from === "bot" &&
-              idx === firstBotIndex &&
-              actions.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {actions.includes("recommend") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-blue-200 rounded"
-                      onClick={() => handleQuickAction("recommend")}
-                    >
-                      Recommend a card for me
-                    </button>
-                  )}
-                  {actions.includes("learn") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-green-200 rounded"
-                      onClick={() => handleQuickAction("learn")}
-                    >
-                      Learn More
-                    </button>
-                  )}
-                  {actions.includes("compare") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                      onClick={() => handleQuickAction("compare")}
-                    >
-                      Compare Cards
-                    </button>
-                  )}
-                  {actions.includes("apply") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-purple-200 rounded"
-                      onClick={() => handleQuickAction("apply")}
-                    >
-                      Apply / Continue
-                    </button>
-                  )}
-                  {actions.includes("check_eligibility") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-orange-200 rounded"
-                      onClick={() => handleQuickAction("check_eligibility")}
-                    >
-                      Check if I’m eligible
-                    </button>
-                  )}
-                </div>
-              )}
+  const num = extractNumber(text);
+  if (num != null && num >= 1000) return num;
 
-            {/* Optional tip block */}
-            {m.from === "bot" && idx === firstBotIndex && tip && (
-              <div className="mt-2 text-xs text-gray-600 whitespace-pre-wrap">{tip}</div>
-            )}
-          </div>
-        ))}
-        {loading && <div className="text-gray-500">Bot is typing...</div>}
-      </div>
+  return null;
+}
 
-      <div className="flex border-t p-2 gap-2">
-        <input
-          type="text"
-          className="flex-1 p-2 border rounded-lg"
-          placeholder="Type your message…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-          onClick={() => sendMessage()}
-          disabled={loading}
-        >
-          Send
-        </button>
-      </div>
-    </div>
+function detectPreference(text: string): string | null {
+  const t = text.toLowerCase();
+  if (t.includes("travel")) return "travel";
+  if (t.includes("cashback") || t.includes("cash back")) return "cashback";
+  if (t.includes("no annual fee")) return "no annual fee";
+  if (t.includes("premium")) return "premium";
+  if (t.includes("student")) return "student";
+  return null;
+}
+
+/** slot order per spec: age → employment → income → (cosigner if student) */
+function nextMissingSlot(slots: Slots): keyof Slots | null {
+  if (slots.age == null) return "age";
+  if (slots.employment == null || slots.employment === "") return "employment";
+  if (slots.income == null) return "income";
+  // student cosigner rule
+  if (
+    slots.employment === "student" &&
+    typeof slots.age === "number" &&
+    slots.age >= 18 &&
+    slots.age <= 25 &&
+    typeof slots.income === "number" &&
+    slots.income > 5000 &&
+    slots.hasCosigner == null
+  ) {
+    return "hasCosigner";
+  }
+  return null;
+}
+
+function askFor(slot: keyof Slots): string {
+  switch (slot) {
+    case "age": return "What is your age?";
+    case "employment": return "What is your employment type? (salaried, self-employed, student, retired)";
+    case "income": return "What is your monthly income (USD)?";
+    case "hasCosigner": return "Do you have a qualified cosigner? (yes/no)";
+    default: return "Tell me about your preference (e.g., travel, cashback, no annual fee).";
+  }
+}
+
+function updateSlotsFromMessage(slots: Slots, message: string): Slots {
+  const t = message.toLowerCase();
+  const s: Slots = { ...slots };
+
+  // Age
+  if (s.age == null) {
+    const n = extractNumber(t);
+    if (n != null && n >= 0 && n <= 120) s.age = n;
+  }
+  // Employment
+  if (s.employment == null) {
+    const emp = normalizeEmployment(t);
+    if (emp) s.employment = emp;
+  }
+  // Income
+  if (s.income == null) {
+    const income = parseIncomeFromText(t);
+    if (income != null) s.income = income;
+  }
+  // Cosigner rule
+  if (
+    s.hasCosigner == null &&
+    s.employment === "student" &&
+    typeof s.age === "number" &&
+    s.age >= 18 &&
+    s.age <= 25 &&
+    typeof s.income === "number" &&
+    s.income > 5000
+  ) {
+    if (/\b(yes|yep|yeah|true)\b/i.test(message)) s.hasCosigner = true;
+    if (/\b(no|nope|nah|false)\b/i.test(message)) s.hasCosigner = false;
+  }
+  // Preference
+  if (s.preference == null) {
+    const pref = detectPreference(t);
+    if (pref) s.preference = pref;
+  }
+
+  return s;
+}
+
+/** Numbered intro + (your UI shows buttons from actions[]) */
+function formatIntro() {
+  const list = cards.slice(0, 3).map((c, i) => {
+    const perks = (c.benefits || []).join(", ");
+    return `${i + 1}. ${c.name} — ${perks || "Standard benefits"}`;
+  });
+  return ["I can help you find the right card. Here are your options:", ...list].join("\n\n");
+}
+
+/** Resolve card by number (1–3), "card 2", or (partial) name */
+function pickCardFromText(text: string) {
+  const t = text.trim().toLowerCase();
+
+  const num = t.match(/(?:^|\b)(?:card\s*)?([1-3])(?:\b|$)/);
+  if (num) return cards[Number(num[1]) - 1];
+
+  const name = t.replace(/^\s*\d+\s*[.)-]?\s*/, "");
+  return cards.find(
+    (c) =>
+      c.name.toLowerCase() === name ||
+      c.name.toLowerCase().includes(name) ||
+      name.includes(c.name.toLowerCase())
   );
 }
 
-export default ChatAssistant;
+function renderEngineReply(engine: any): string {
+  if (engine?.type === "full-match") return `🧠 Builds trust by showing logic clearly\n${engine.message}`;
+  if (engine?.type === "multiple-match") return `🟢 Transparent + ranked choices\n${engine.message}`;
+  if (engine?.type === "partial-match") {
+    const failures: string[] = engine.failures || [];
+    const out: string[] = [`⚠️ Partial match – explained clearly`, engine.message];
+    let current: string | null = null;
+    failures.forEach((line) => {
+      if (line.endsWith(":")) {
+        current = line.slice(0, -1);
+        out.push(`\n${current}:`);
+      } else {
+        out.push(`- ${line.replace(/^[-•]\s*/, "")}`);
+      }
+    });
+    return out.join("\n");
+  }
+  return engine?.message || "❌ No card matches your inputs right now.";
+}
+
+/* ========= Route ========= */
+export async function POST(req: NextRequest) {
+  try {
+    const { message, slots: incomingSlots, firstTurn, context: incomingCtx } = await req.json();
+    const text = String(message || "").toLowerCase();
+
+    const slots: Slots = {
+      income: incomingSlots?.income ?? null,
+      age: incomingSlots?.age ?? null,
+      employment: incomingSlots?.employment ?? null,
+      preference: incomingSlots?.preference ?? null,
+      hasCosigner: incomingSlots?.hasCosigner ?? null,
+    };
+
+    let context: Context = incomingCtx || {};
+
+    /* 1) Intro ALWAYS on first turn */
+    if (firstTurn) {
+      return NextResponse.json({
+        reply: formatIntro(),
+        slots,
+        done: false,
+        context,
+        actions: ["recommend", "learn", "compare"], // UI renders these buttons
+      });
+    }
+
+    /* 2) PERSISTED COMPARE: full (a+b) — resume after we collected a missing slot */
+    if (context.mode === "compare" && context.compare?.a && context.compare?.b) {
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+      const cardA = cards.find((c) => c.name === context.compare!.a)!;
+      const cardB = cards.find((c) => c.name === context.compare!.b)!;
+      const resA = scoreCard(cardA as any, s as any);
+      const resB = scoreCard(cardB as any, s as any);
+      const reply = [
+        `⚖️ Comparison for your profile:`,
+        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
+        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
+        resA.score > resB.score
+          ? `👉 Best for you: **${cardA.name}**`
+          : resB.score > resA.score
+          ? `👉 Best for you: **${cardB.name}**`
+          : `Both cards are equally suitable based on your profile.`,
+      ].join("\n");
+      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+    }
+
+    /* 3) PERSISTED COMPARE: partial (only a) — user now sends the other card number/name */
+    if (context.mode === "compare" && context.compare?.a && !context.compare.b) {
+      const other = pickCardFromText(message);
+      if (!other) {
+        // prompt again with numbered options
+        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
+        return NextResponse.json({
+          reply: `Which card would you like to compare with **${context.compare.a}**?\nReply with the number (1–3) or the name:\n\n${list}`,
+          slots,
+          done: false,
+          context,
+        });
+      }
+      // we have both → proceed like a normal compare
+      context.compare.b = other.name;
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+      const cardA = cards.find((c) => c.name === context.compare!.a)!;
+      const cardB = other;
+      const resA = scoreCard(cardA as any, s as any);
+      const resB = scoreCard(cardB as any, s as any);
+      const reply = [
+        `⚖️ Comparison for your profile:`,
+        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
+        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
+        resA.score > resB.score
+          ? `👉 Best for you: **${cardA.name}**`
+          : resB.score > resA.score
+          ? `👉 Best for you: **${cardB.name}**`
+          : `Both cards are equally suitable based on your profile.`,
+      ].join("\n");
+      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+    }
+
+    /* 4) COMPARE: "compare A vs B" (numbers or names) */
+    const compareMatch = text.match(/compare\s+(.+?)\s+vs\s+(.+)/i);
+    if (compareMatch) {
+      const aTok = compareMatch[1].trim();
+      const bTok = compareMatch[2].trim();
+      const cardA = pickCardFromText(aTok);
+      const cardB = pickCardFromText(bTok);
+
+      if (!cardA || !cardB) {
+        return NextResponse.json({
+          reply: "I couldn’t find one or both cards to compare. Use the numbers (1–3) or full names.",
+          slots,
+          done: false,
+          context,
+        });
+      }
+
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        context = { mode: "compare", compare: { a: cardA.name, b: cardB.name } }; // persist intent
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+
+      const resA = scoreCard(cardA as any, s as any);
+      const resB = scoreCard(cardB as any, s as any);
+      const reply = [
+        `⚖️ Comparison for your profile:`,
+        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
+        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
+        resA.score > resB.score
+          ? `👉 Best for you: **${cardA.name}**`
+          : resB.score > resA.score
+          ? `👉 Best for you: **${cardB.name}**`
+          : `Both cards are equally suitable based on your profile.`,
+      ].join("\n");
+      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+    }
+
+    /* 5) COMPARE: "compare with <card>" (button text from UI after Learn More)
+          — also handles "compare with" (no target) by prompting for the second card */
+    const compareWithMatch = text.match(/compare\s+with(?:\s+(.+))?$/i);
+    if (compareWithMatch) {
+      // need a base card; prefer selectedCard from Learn mode
+      const baseName = context.selectedCard;
+      const baseCard = baseName ? cards.find((c) => c.name === baseName) : undefined;
+
+      if (!baseCard) {
+        // No base selected; ask user to pick base first
+        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
+        return NextResponse.json({
+          reply: `Which card should we start from?\nReply with the number (1–3) or the name:\n\n${list}`,
+          slots,
+          done: false,
+          context: { mode: "compare" }, // enter compare mode
+        });
+      }
+
+      // If no second card specified: set partial compare and prompt for second
+      const otherToken = (compareWithMatch[1] || "").trim();
+      if (!otherToken) {
+        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
+        context = { mode: "compare", compare: { a: baseCard.name } }; // partial compare (only a)
+        return NextResponse.json({
+          reply: `Which card would you like to compare with **${baseCard.name}**?\nReply with the number (1–3) or the name:\n\n${list}`,
+          slots,
+          done: false,
+          context,
+        });
+      }
+
+      // We have a second token → resolve immediately
+      const otherCard = pickCardFromText(otherToken);
+      if (!otherCard) {
+        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
+        context = { mode: "compare", compare: { a: baseCard.name } };
+        return NextResponse.json({
+          reply: `I couldn’t find that card. Reply with the number (1–3) or the name:\n\n${list}`,
+          slots,
+          done: false,
+          context,
+        });
+      }
+
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        context = { mode: "compare", compare: { a: baseCard.name, b: otherCard.name } };
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+
+      const resA = scoreCard(baseCard as any, s as any);
+      const resB = scoreCard(otherCard as any, s as any);
+      const reply = [
+        `⚖️ Comparison for your profile:`,
+        `- **${baseCard.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
+        `- **${otherCard.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
+        resA.score > resB.score
+          ? `👉 Best for you: **${baseCard.name}**`
+          : resB.score > resA.score
+          ? `👉 Best for you: **${otherCard.name}**`
+          : `Both cards are equally suitable based on your profile.`,
+      ].join("\n");
+      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+    }
+
+    /* 6) LEARN MORE: prompt to choose a card */
+    if (/learn more/.test(text)) {
+      context = { mode: "learn" };
+      return NextResponse.json({
+        reply: "Which card would you like to learn more about? Reply with the number (1, 2, 3) or the name.",
+        slots,
+        done: false,
+        context,
+      });
+    }
+
+    /* 7) LEARN MORE: select a card (in learn mode or explicit selection) */
+    if (context.mode === "learn" || /(details|about)\b/.test(text) || /^[1-3]$/.test(text)) {
+      if (!context.selectedCard) {
+        const selected = pickCardFromText(message);
+        if (selected) {
+          context.selectedCard = selected.name;
+
+          const details =
+            `${selected.name} — ${(selected.benefits || []).join(", ")}\n` +
+            `Min income: $${selected.minIncome}\n` +
+            `Age: ${selected.eligibleAges.join("-")}\n` +
+            `Employment: ${selected.employmentTypes.join(", ")}`;
+
+          const tip =
+            "💡 Tip: You can also ask:\n" +
+            `• "Compare with Student Essentials"\n` +
+            `• "Am I eligible with $8,000 income and age 30?"\n` +
+            `• "Apply now"`;
+
+          return NextResponse.json({
+            reply: `${details}\n\nWhat would you like to do next?`,
+            slots,
+            done: false,
+            context, // keep learn mode + selectedCard
+            actions: ["apply", "compare", "check_eligibility"],
+            tip,
+          });
+        }
+      }
+    }
+
+    /* 8) LEARN MORE: "Am I eligible ..." for the selected card */
+    if (context.mode === "learn" && context.selectedCard && /eligible/.test(text)) {
+      const selected = cards.find((c) => c.name === context.selectedCard);
+      if (selected) {
+        const incomeInline = parseIncomeFromText(message);
+        const ageInline = (() => {
+          const m = message.match(/\b(\d{1,2})\b/);
+          return m ? Number(m[1]) : undefined;
+        })();
+
+        let s = { ...slots };
+        if (typeof incomeInline === "number") s.income = incomeInline;
+        if (typeof ageInline === "number") s.age = ageInline;
+
+        const missing = nextMissingSlot(s);
+        if (missing) {
+          return NextResponse.json({
+            reply: askFor(missing),
+            slots: s,
+            done: false,
+            context, // keep learn mode + selectedCard
+          });
+        }
+
+        const { score, reasons, failures } = scoreCard(selected as any, s as any);
+        let r: string;
+        if (failures.length === 0 && score >= 3) {
+          r = `✅ You are eligible for the ${selected.name}!\n${reasons.length ? reasons.join("\n") : ""}`;
+        } else {
+          r =
+            `❌ You are not eligible for the ${selected.name}.\n\n` +
+            (failures.length ? failures.join("\n") : "") +
+            (reasons.length ? `\n\n${reasons.join("\n")}` : "");
+        }
+        return NextResponse.json({
+          reply: `${r}\n\nWould you like to apply, compare with another card, or get a recommendation?`,
+          slots: s,
+          done: false,
+          context,
+          actions: ["apply", "compare", "recommend"],
+        });
+      }
+    }
+
+    /* 9) LEARN MORE: capture employment mid-eligibility */
+    if (context.mode === "learn" && context.selectedCard && !slots.employment) {
+      const emp = normalizeEmployment(message);
+      if (emp) {
+        const s = { ...slots, employment: emp };
+        const missing = nextMissingSlot(s);
+        if (missing) {
+          return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+        }
+        const selected = cards.find((c) => c.name === context.selectedCard)!;
+        const { score, reasons, failures } = scoreCard(selected as any, s as any);
+        let r: string;
+        if (failures.length === 0 && score >= 3) {
+          r = `✅ You are eligible for the ${selected.name}!\n${reasons.length ? reasons.join("\n") : ""}`;
+        } else {
+          r =
+            `❌ You are not eligible for the ${selected.name}.\n\n` +
+            (failures.length ? failures.join("\n") : "") +
+            (reasons.length ? `\n\n${reasons.join("\n")}` : "");
+        }
+        return NextResponse.json({
+          reply: `${r}\n\nWould you like to apply, compare with another card, or get a recommendation?`,
+          slots: s,
+          done: false,
+          context,
+          actions: ["apply", "compare", "recommend"],
+        });
+      }
+    }
+
+    /* 10) Quick intents */
+    if (/apply now|apply|continue/.test(text)) {
+      return NextResponse.json({
+        reply: "Great! You can start your application in the app. Want me to pre-check eligibility first?",
+        slots,
+        done: false,
+        context,
+      });
+    }
+
+    if (/check.*eligible|^eligible$/.test(text)) {
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+      // Use aggregator for general recommendation across all cards
+      const engine = runEngine({
+        income: Number(s.income),
+        age: Number(s.age),
+        employment: String(s.employment),
+        preference: s.preference ?? null,
+        hasCosigner: s.hasCosigner === true,
+      } as any);
+      return NextResponse.json({
+        reply: renderEngineReply(engine),
+        slots: s,
+        done: true,
+        context,
+      });
+    }
+
+    if (text.includes("recommend")) {
+      const s = updateSlotsFromMessage(slots, message);
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+      }
+      const engine = runEngine({
+        income: Number(s.income),
+        age: Number(s.age),
+        employment: String(s.employment),
+        preference: s.preference ?? null,
+        hasCosigner: s.hasCosigner === true,
+      } as any);
+      return NextResponse.json({
+        reply: renderEngineReply(engine),
+        slots: s,
+        done: true,
+        context,
+      });
+    }
+
+    /* 11) Fallback */
+    return NextResponse.json({
+      reply: "I’m here to help with cards. Use the buttons: Recommend, Learn More, or Compare.",
+      slots,
+      done: false,
+      context,
+    });
+  } catch (err) {
+    console.error("API ERROR:", err);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
