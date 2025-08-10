@@ -1,10 +1,13 @@
+You’re right—sorry for the back-and-forth. Here’s the **complete, final `components/chat-assistant.tsx`** with *all* the fixes baked in (silent auto-intro, newline preservation, loading guard, actions fallback, proper button labels, no stray JSX comments, no unused state). Paste-and-go:
+
+```tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import { ChatSlots } from "@/lib/utils/askAI";
 
 type Props = {
-  language: string;
+  language: string; // kept for compatibility with your Page
   userContext: {
     income: number | null;
     age: number | null;
@@ -16,10 +19,10 @@ type Props = {
 export function ChatAssistant({ language, userContext }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string; tip?: string }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([]);
   const [input, setInput] = useState("");
+
+  // Normalize initial context: treat 0/"" as null so server will ask for them
   const [slots, setSlots] = useState<ChatSlots>({
     income: userContext?.income && userContext.income > 0 ? userContext.income : null,
     age: userContext?.age && userContext.age > 0 ? userContext.age : null,
@@ -41,7 +44,7 @@ export function ChatAssistant({ language, userContext }: Props) {
     const mainLines: string[] = [];
     const hints: string[] = [];
     for (const line of text.split("\n")) {
-      if (/^\s*hint\s*:/i.test(line)) hints.push(line.trim());
+      if (/^\s*hint\s*:/i.test(line)) hints.push(line.trim()); // keep the word "Hint:"
       else mainLines.push(line);
     }
     return { main: mainLines.join("\n"), hints };
@@ -68,7 +71,7 @@ export function ChatAssistant({ language, userContext }: Props) {
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
 
-      // 🔁 Always keep buttons visible (fallback if server sends none)
+      // Always keep buttons visible: fallback to intro set if server sends none
       const nextActions = Array.isArray(data.actions) ? data.actions : [];
       setActions(nextActions.length ? nextActions : ["recommend", "learn", "compare"]);
 
@@ -109,11 +112,11 @@ export function ChatAssistant({ language, userContext }: Props) {
       );
     });
 
-  // Auto-intro once when panel opens (silent user msg)
+  // Auto-intro once when panel opens (silent user msg so no "start" bubble)
   useEffect(() => {
     if (isOpen && firstTurn && messages.length === 0 && !bootstrappedRef.current) {
       bootstrappedRef.current = true;
-      sendMessage("start", true); // silent=true, no user bubble
+      sendMessage("start", true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, firstTurn, messages.length]);
@@ -157,7 +160,7 @@ export function ChatAssistant({ language, userContext }: Props) {
                 className={`rounded-lg px-3 py-2 max-w-xs ${
                   isUser
                     ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-800 whitespace-pre-wrap"
+                    : "bg-gray-100 text-gray-800 whitespace-pre-wrap" // preserve line breaks
                 }`}
               >
                 {main}
@@ -191,7 +194,7 @@ export function ChatAssistant({ language, userContext }: Props) {
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 border rounded-l px-3 py-2 text-sm"
             placeholder="Type your message..."
-            onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage(input)} {/* ⛔ block while loading */}
+            onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage(input)}
           />
           <button
             onClick={() => sendMessage(input)}
@@ -205,3 +208,6 @@ export function ChatAssistant({ language, userContext }: Props) {
     </div>
   );
 }
+```
+
+If anything still feels off after redeploy, tell me the exact message sequence you try and I’ll adjust both client and route in one shot.
