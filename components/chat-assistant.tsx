@@ -13,6 +13,13 @@ type Props = {
   };
 };
 
+function normalizeActionKeys(actions: unknown): string[] {
+  if (!Array.isArray(actions)) return [];
+  return actions
+    .map((a) => (typeof a === "string" ? a.trim().toLowerCase() : ""))
+    .filter(Boolean);
+}
+
 export function ChatAssistant({ language, userContext }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -26,19 +33,25 @@ export function ChatAssistant({ language, userContext }: Props) {
     hasCosigner: null,
   });
 
-  // 🔁 Persist multi-turn intent (e.g., compare/learn) with the backend
+  // Server-driven multi-turn state
   const [context, setContext] = useState<any>({});
 
   const [isFirstTurn, setIsFirstTurn] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Parsed from the numbered intro reply: "1. Card — perks"
+  // For default compare from intro (if needed)
   const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]);
 
-  // actions from API (e.g., ["recommend","learn","compare"] or ["apply","compare","check_eligibility"])
+  // Server-driven actions/tip/meta
   const [actions, setActions] = useState<string[]>([]);
-  // optional 💡 tip string from API (after Learn More)
   const [tip, setTip] = useState<string>("");
+  const [meta, setMeta] = useState<any>({});
+
+  // Normalize actions for robust matching
+  const normActions = useMemo(() => {
+    const arr = normalizeActionKeys(actions);
+    return new Set(arr); // lowercase keys
+  }, [actions]);
 
   const firstBotIndex = useMemo(
     () => messages.findIndex((m) => m.from === "bot"),
@@ -56,27 +69,28 @@ export function ChatAssistant({ language, userContext }: Props) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
+        cache: "no-store", // avoid stale Vercel cache
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: messageToSend,
           slots,
           firstTurn: isFirstTurn,
-          context, // 🔁 round-trip context to persist compare/learn mode
+          context, // round-trip server state
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Extract first two card names from numbered intro lines (e.g., "1. Professional Plus Card — ...")
+      // Parse two card names from numbered intro "1. Card — ..."
       if (isFirstTurn && data.reply) {
         const matches = [...String(data.reply).matchAll(/^\s*\d+\.\s(.+?)\s—/gm)].map((m) => m[1]);
         if (matches.length >= 2) setFirstTwoCards(matches.slice(0, 2));
       }
 
-      // Save actions/tip/context from backend
       setActions(Array.isArray(data.actions) ? data.actions : []);
       setTip(typeof data.tip === "string" ? data.tip : "");
-      setContext(data.context || {}); // 🔁 keep backend intent state
+      setMeta(data.meta || {});
+      setContext(data.context || {});
 
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       setSlots(data.slots || {});
@@ -92,6 +106,7 @@ export function ChatAssistant({ language, userContext }: Props) {
     }
   };
 
+  // First-intro quick actions
   const handleIntroQuickAction = (type: "recommend" | "learn" | "compare") => {
     if (type === "recommend") {
       sendMessage("recommend a card for me");
@@ -101,9 +116,140 @@ export function ChatAssistant({ language, userContext }: Props) {
       if (firstTwoCards.length >= 2) {
         sendMessage(`compare ${firstTwoCards[0]} vs ${firstTwoCards[1]}`);
       } else {
-        sendMessage("compare 1 vs 2"); // safe fallback
+        sendMessage("compare 1 vs 2"); // safe fallback if intro parse changes
       }
     }
+  };
+
+  // Render server-driven buttons + tip for a given bot message index
+  const renderActions = (whereIdx: number) => {
+    // Only render buttons for the most recent bot message,
+    // except for the very first bot message where we show the 3 intro buttons.
+    const isLatestBot = whereIdx === messages.length - 1;
+    const isFirstBot = whereIdx === firstBotIndex;
+
+    // Case 1: First bot reply → exactly 3 buttons
+    if (
+      isFirstBot &&
+      (normActions.has("recommend") || normActions.has("learn") || normActions.has("compare"))
+    ) {
+      return (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {normActions.has("recommend") && (
+              <button
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+                onClick={() => handleIntroQuickAction("recommend")}
+              >
+                Recommend a card for me
+              </button>
+            )}
+            {normActions.has("learn") && (
+              <button
+                className="px-3 py-1 text-sm bg-green-200 rounded"
+                onClick={() => handleIntroQuickAction("learn")}
+              >
+                Learn More
+              </button>
+            )}
+            {normActions.has("compare") && (
+              <button
+                className="px-3 py-1 text-sm bg-yellow-200 rounded"
+                onClick={() => handleIntroQuickAction("compare")}
+              >
+                Compare Cards
+              </button>
+            )}
+          </div>
+          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
+        </>
+      );
+    }
+
+    // Only attach follow-up buttons to the latest bot message
+    if (!isLatestBot) return null;
+
+    // Case 2: After Compare (or two-pick Learn) → two Learn buttons only
+    if (normActions.has("learn_a") || normActions.has("learn_b")) {
+      const labelA = meta?.learnA || "Card A";
+      const labelB = meta?.learnB || "Card B";
+      return (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {normActions.has("learn_a") && (
+              <button
+                className="px-3 py-1 text-sm bg-green-200 rounded"
+                onClick={() => sendMessage("learn_A")}
+              >
+                Learn more about {labelA}
+              </button>
+            )}
+            {normActions.has("learn_b") && (
+              <button
+                className="px-3 py-1 text-sm bg-green-200 rounded"
+                onClick={() => sendMessage("learn_B")}
+              >
+                Learn more about {labelB}
+              </button>
+            )}
+          </div>
+          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
+        </>
+      );
+    }
+
+    // Case 3: Eligible → only Apply
+    if (normActions.has("apply")) {
+      return (
+        <>
+          <div className="mt-3">
+            <button
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+              onClick={() => sendMessage("apply")}
+            >
+              Apply
+            </button>
+          </div>
+          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
+        </>
+      );
+    }
+
+    // Case 4: Not eligible → Learn Other / Talk to Agent (dynamic other card label)
+    if (normActions.has("learn_other") || normActions.has("talk_agent")) {
+      const otherCardName: string | undefined = meta?.otherCardName;
+      const otherLabel = otherCardName ? `Learn about ${otherCardName}` : "Learn about another card";
+      return (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {normActions.has("learn_other") && (
+              <button
+                className="px-3 py-1 text-sm bg-green-200 rounded"
+                onClick={() => sendMessage("learn_other")}
+              >
+                {otherLabel}
+              </button>
+            )}
+            {normActions.has("talk_agent") && (
+              <button
+                className="px-3 py-1 text-sm bg-gray-200 rounded"
+                onClick={() => sendMessage("talk_agent")}
+              >
+                Talk to Agent
+              </button>
+            )}
+          </div>
+          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
+        </>
+      );
+    }
+
+    // Generic tip/hints for any other step
+    if (tip) {
+      return <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>;
+    }
+
+    return null;
   };
 
   if (!isOpen) {
@@ -121,9 +267,11 @@ export function ChatAssistant({ language, userContext }: Props) {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
-      {/* Header with close */}
+      {/* Header with close; include language so param is "used" (avoids noUnusedParameters build errors) */}
       <div className="flex items-center justify-between px-4 py-3 bg-blue-700 text-white rounded-t-2xl">
-        <div className="font-semibold">Banking Assistant</div>
+        <div className="font-semibold">
+          Banking Assistant{language ? ` • ${language.toUpperCase()}` : ""}
+        </div>
         <button
           onClick={() => setIsOpen(false)}
           className="px-2 py-1 rounded hover:bg-blue-600"
@@ -144,77 +292,8 @@ export function ChatAssistant({ language, userContext }: Props) {
             }`}
           >
             {m.text}
-
-            {/* Intro quick actions from API (e.g., ["recommend","learn","compare"]) */}
-            {m.from === "bot" &&
-              idx === firstBotIndex &&
-              actions.length > 0 &&
-              // Show when the first bot message contains intro actions
-              (actions.includes("recommend") || actions.includes("learn") || actions.includes("compare")) && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {actions.includes("recommend") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-                      onClick={() => handleIntroQuickAction("recommend")}
-                    >
-                      Recommend a card for me
-                    </button>
-                  )}
-                  {actions.includes("learn") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-green-200 rounded"
-                      onClick={() => handleIntroQuickAction("learn")}
-                    >
-                      Learn More
-                    </button>
-                  )}
-                  {actions.includes("compare") && (
-                    <button
-                      className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                      onClick={() => handleIntroQuickAction("compare")}
-                    >
-                      Compare Cards
-                    </button>
-                  )}
-                </div>
-              )}
-
-            {/* Learn More next-step actions (apply/compare/check_eligibility) + Tip */}
-            {m.from === "bot" &&
-              idx === messages.length - 1 &&
-              actions.length > 0 &&
-              // Show when backend sent learn-more actions
-              (actions.includes("apply") || actions.includes("check_eligibility") || actions.includes("compare")) && (
-                <div className="mt-3 flex flex-col gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    {actions.includes("apply") && (
-                      <button
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-                        onClick={() => sendMessage("apply now")}
-                      >
-                        Apply / Continue
-                      </button>
-                    )}
-                    {actions.includes("compare") && (
-                      <button
-                        className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                        onClick={() => sendMessage("compare with")}
-                      >
-                        Compare this with another card
-                      </button>
-                    )}
-                    {actions.includes("check_eligibility") && (
-                      <button
-                        className="px-3 py-1 text-sm bg-green-200 rounded"
-                        onClick={() => sendMessage("check if I’m eligible")}
-                      >
-                        Check if I’m eligible
-                      </button>
-                    )}
-                  </div>
-                  {tip && <div className="text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
-                </div>
-              )}
+            {/* Server-driven buttons/tips */}
+            {m.from === "bot" && renderActions(idx)}
           </div>
         ))}
         {loading && <div className="text-gray-500">Bot is typing...</div>}
