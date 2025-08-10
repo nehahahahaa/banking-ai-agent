@@ -78,7 +78,7 @@ export function ChatAssistant({ language, userContext }: Props) {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto border rounded-lg shadow-md bg-white">
+    <div className="fixed bottom-6 right-6 z-50 w-[350px] max-w-[calc(100vw-2rem)] flex flex-col border rounded-lg shadow-md bg-white">
       <div className="p-4 flex-1 overflow-y-auto space-y-3">
         {messages.map((m, idx) => (
           <div
