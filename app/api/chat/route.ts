@@ -14,8 +14,7 @@ type Slots = {
 type Context = {
   mode?: "learn" | "compare" | "recommend";
   selectedCard?: string;
-  // store two-card choices for follow-up Learn buttons (from compare OR "1, 2" selection)
-  learnOptions?: { a: string; b: string };
+  learnOptions?: { a: string; b: string }; // for two-card follow-up buttons
 };
 
 /* ========= Helpers ========= */
@@ -105,7 +104,10 @@ function nextMissingSlot(slots: Slots): keyof Slots | null {
 }
 
 /** Hinted prompts (card-aware). The word "Hint" per your request. */
-function askFor(slot: keyof Slots, card?: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }): string {
+function askFor(
+  slot: keyof Slots,
+  card?: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }
+): string {
   const name = card?.name || "this card";
   if (slot === "age") {
     const [minA, maxA] = card?.eligibleAges || [18, 99];
@@ -251,12 +253,14 @@ export async function POST(req: NextRequest) {
         `**${cardB.name}** — ${(cardB.benefits || []).join(", ")}\n` +
         `Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`;
 
+      const s = slots; // unchanged here
       return NextResponse.json({
         reply,
-        slots,
+        slots: s,
         done: false,
         context: { mode: "learn", learnOptions: { a: cardA.name, b: cardB.name } }, // prepare learn buttons
         actions: ["learn_A", "learn_B"], // only two buttons
+        meta: { learnA: cardA.name, learnB: cardB.name }, // labels for buttons
       });
     }
 
@@ -280,12 +284,14 @@ export async function POST(req: NextRequest) {
         `**${otherCard.name}** — ${(otherCard.benefits || []).join(", ")}\n` +
         `Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${otherCard.employmentTypes.join(", ")}`;
 
+      const s = slots;
       return NextResponse.json({
         reply,
-        slots,
+        slots: s,
         done: false,
         context: { mode: "learn", learnOptions: { a: baseCard.name, b: otherCard.name } },
         actions: ["learn_A", "learn_B"],
+        meta: { learnA: baseCard.name, learnB: otherCard.name }, // labels for buttons
       });
     }
 
@@ -316,6 +322,7 @@ export async function POST(req: NextRequest) {
           done: false,
           context: { mode: "learn", learnOptions: { a: A.name, b: B.name } },
           actions: ["learn_A", "learn_B"],
+          meta: { learnA: A.name, learnB: B.name }, // labels for buttons
         });
       }
     }
@@ -406,7 +413,6 @@ export async function POST(req: NextRequest) {
       }
 
       // Not eligible → offer learn-other (smart default) or talk to agent
-      // Prefer other card if there was a previous two-card context; else suggest Student Essentials
       const otherName =
         context.learnOptions?.a && context.learnOptions?.a !== selected.name
           ? context.learnOptions.a
@@ -425,6 +431,7 @@ export async function POST(req: NextRequest) {
         context: {}, // clear mode
         actions: ["learn_other", "talk_agent"],
         tip: `📞 Please call us at ${AGENT_PHONE}.`,
+        meta: { otherCardName: otherName }, // label for "learn_other" button
       });
     }
 
@@ -441,7 +448,8 @@ export async function POST(req: NextRequest) {
     if (text === "learn_other") {
       const name =
         context.learnOptions?.a || context.learnOptions?.b || "Student Essentials Card";
-      const picked = cards.find(c => c.name === name) ||
+      const picked =
+        cards.find(c => c.name === name) ||
         cards.find(c => /student essentials/i.test(c.name));
       if (picked) {
         return NextResponse.json({
@@ -467,7 +475,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 10) Recommend flow (kept intact; not the MVP focus but still works) */
+    /* 10) Recommend flow (kept intact) */
     if (text.includes("recommend")) {
       const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
@@ -481,7 +489,6 @@ export async function POST(req: NextRequest) {
         preference: s.preference ?? null,
         hasCosigner: s.hasCosigner === true,
       } as any);
-      // Keep your existing engine rendering on client side; here we just return message
       return NextResponse.json({
         reply: engine?.message || "Here are your recommendations.",
         slots: s,
@@ -492,7 +499,8 @@ export async function POST(req: NextRequest) {
 
     /* 11) Fallback */
     return NextResponse.json({
-      reply: "I’m here to help with cards. Use the buttons: Recommend a card for me, Learn more, or Compare with another card.",
+      reply:
+        "I’m here to help with cards. Use the buttons: Recommend a card for me, Learn more, or Compare with another card.",
       slots,
       done: false,
       context,
