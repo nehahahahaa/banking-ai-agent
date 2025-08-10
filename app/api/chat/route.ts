@@ -18,6 +18,12 @@ type Context = {
 };
 
 /* ========= Helpers ========= */
+// Display-only filter: hide "self-employed" from chat blurbs
+function formatEmploymentList(list: string[] = []) {
+  return list.filter((x) => !/self-employed/i.test(x)).join(", ");
+}
+
+// 🔧 No self-employed in parser (MVP)
 const EMPLOYMENT_ALIASES: Record<string, string> = {
   salaried: "salaried",
   "full time": "salaried",
@@ -29,11 +35,6 @@ const EMPLOYMENT_ALIASES: Record<string, string> = {
   college: "student",
   retired: "retired",
   pension: "retired",
-  self: "self-employed",
-  "self employed": "self-employed",
-  "self-employed": "self-employed",
-  freelance: "self-employed",
-  contractor: "self-employed",
 };
 
 function normalizeEmployment(text: string): string | null {
@@ -109,8 +110,8 @@ function askFor(
     return `What is your age?\nHint: ${name} requires ${minA}–${maxA}.`;
   }
   if (slot === "employment") {
-    const allowed = card?.employmentTypes?.join(", ") || "salaried, self-employed, student, retired";
-    const hrHint = card?.employmentTypes?.includes("salaried") ? " Hint: choose salaried." : "";
+    const allowed = "salaried, student, retired"; // 🔧 limit prompt list
+    const hrHint = card?.name?.toLowerCase().includes("professional plus") ? " Hint: choose salaried." : "";
     return `What is your employment type? (${allowed})${hrHint}`;
   }
   if (slot === "income") {
@@ -195,10 +196,11 @@ export async function POST(req: NextRequest) {
 
     const text = String(message || "").toLowerCase();
 
+    // 🔧 Sanitize incoming zeros/empty to null so we ask questions
     const slots: Slots = {
-      income: incomingSlots?.income ?? null,
-      age: incomingSlots?.age ?? null,
-      employment: incomingSlots?.employment ?? null,
+      income: incomingSlots?.income && incomingSlots.income > 0 ? incomingSlots.income : null,
+      age: incomingSlots?.age && incomingSlots.age > 0 ? incomingSlots.age : null,
+      employment: incomingSlots?.employment?.trim() ? incomingSlots.employment : null,
       preference: incomingSlots?.preference ?? null,
       hasCosigner: incomingSlots?.hasCosigner ?? null,
     };
@@ -238,8 +240,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 1c) Bare "compare" → prompt for two */
-    if (/^compare$/.test(text)) {
+    /* Bare "compare" → prompt for two (trimmed) */
+    if (/^compare$/.test(text.trim())) {
       const list = cards
         .slice(0, 3)
         .map((c, i) => `${i + 1}. ${c.name}`)
@@ -273,9 +275,9 @@ export async function POST(req: NextRequest) {
 
       const reply =
         `**${cardA.name}** — ${(cardA.benefits || []).join(", ")}\n` +
-        `Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}\n\n` +
+        `Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${formatEmploymentList(cardA.employmentTypes)}\n\n` +
         `**${cardB.name}** — ${(cardB.benefits || []).join(", ")}\n` +
-        `Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`;
+        `Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${formatEmploymentList(cardB.employmentTypes)}`;
 
       return NextResponse.json({
         reply,
@@ -303,9 +305,9 @@ export async function POST(req: NextRequest) {
 
       const reply =
         `**${baseCard.name}** — ${(baseCard.benefits || []).join(", ")}\n` +
-        `Min income: $${baseCard.minIncome} · Age: ${baseCard.eligibleAges.join("-")} · Employment: ${baseCard.employmentTypes.join(", ")}\n\n` +
+        `Min income: $${baseCard.minIncome} · Age: ${baseCard.eligibleAges.join("-")} · Employment: ${formatEmploymentList(baseCard.employmentTypes)}\n\n` +
         `**${otherCard.name}** — ${(otherCard.benefits || []).join(", ")}\n` +
-        `Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${otherCard.employmentTypes.join(", ")}`;
+        `Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${formatEmploymentList(otherCard.employmentTypes)}`;
 
       return NextResponse.json({
         reply,
@@ -317,8 +319,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 4) Learn more → prompt */
-    if (/learn more/.test(text)) {
+    /* 4) Learn more → prompt (forgiving regex) */
+    if (/\blearn\s+more\b/i.test(message.trim())) {
       context = { mode: "learn", selectedCard: undefined, learnOptions: undefined };
       return NextResponse.json({
         reply: "Which card would you like to learn more about? Reply with the number (1, 2, 3) or the name.",
@@ -352,13 +354,13 @@ export async function POST(req: NextRequest) {
     /* 6) Learn_A / Learn_B buttons */
     if (/^learn[_\s]?a$/i.test(text) || /^learn more about a$/i.test(text)) {
       const name = context.learnOptions?.a;
-      const picked = name ? cards.find(c => c.name === name) : undefined;
+      const picked = name ? cards.find((c) => c.name === name) : undefined;
       if (picked) {
         context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
         return NextResponse.json({
           reply:
             `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
-            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
             `Let’s check your eligibility.\n` + askFor("age", picked),
           slots,
           done: false,
@@ -369,13 +371,13 @@ export async function POST(req: NextRequest) {
     }
     if (/^learn[_\s]?b$/i.test(text) || /^learn more about b$/i.test(text)) {
       const name = context.learnOptions?.b;
-      const picked = name ? cards.find(c => c.name === name) : undefined;
+      const picked = name ? cards.find((c) => c.name === name) : undefined;
       if (picked) {
         context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
         return NextResponse.json({
           reply:
             `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
-            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
             `Let’s check your eligibility.\n` + askFor("age", picked),
           slots,
           done: false,
@@ -385,7 +387,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 7) Learn: single selection → start step-by-step with hints */
+    /* 7) Learn: single selection → step-by-step with hints */
     if (context.mode === "learn" && !context.selectedCard) {
       const selected = pickCardFromText(message);
       if (selected) {
@@ -393,7 +395,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           reply:
             `**${selected.name}** — ${(selected.benefits || []).join(", ")}\n` +
-            `Min income: $${selected.minIncome} · Age: ${selected.eligibleAges.join("-")} · Employment: ${selected.employmentTypes.join(", ")}\n\n` +
+            `Min income: $${selected.minIncome} · Age: ${selected.eligibleAges.join("-")} · Employment: ${formatEmploymentList(selected.employmentTypes)}\n\n` +
             `Let’s check your eligibility.\n` + askFor("age", selected),
           slots,
           done: false,
@@ -405,13 +407,23 @@ export async function POST(req: NextRequest) {
 
     /* 8) Learn: step-by-step capture, then eligibility */
     if (context.mode === "learn" && context.selectedCard) {
-      const selected = cards.find(c => c.name === context.selectedCard)!;
+      const selected = cards.find((c) => c.name === context.selectedCard)!;
 
       let s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
       if (missing) {
         return NextResponse.json({
           reply: askFor(missing, selected),
+          slots: s,
+          done: false,
+          context,
+          actions: [],
+        });
+      }
+      // Guard: ensure income exists before scoring
+      if (s.income == null) {
+        return NextResponse.json({
+          reply: askFor("income", selected),
           slots: s,
           done: false,
           context,
@@ -431,7 +443,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Not eligible → keep "other" in context (tiny fix)
       const otherName =
         context.learnOptions?.a && context.learnOptions?.a !== selected.name
           ? context.learnOptions.a
@@ -439,7 +450,6 @@ export async function POST(req: NextRequest) {
           ? context.learnOptions.b
           : "Student Essentials Card";
 
-      const AGENT_PHONE = process.env.AGENT_PHONE || "1-800-XXXX-XXXX";
       return NextResponse.json({
         reply:
           `❌ You are not eligible for the **${selected.name}**.\n\n` +
@@ -447,11 +457,9 @@ export async function POST(req: NextRequest) {
           `\n\nWould you like to learn about the **${otherName}** or talk to an agent?`,
         slots: s,
         done: false,
-        // ▼▼▼ FIX: preserve the "other" choice so learn_other picks it correctly
+        // keep "other" in context so learn_other uses it
         context: { mode: "learn", selectedCard: undefined, learnOptions: { a: otherName, b: otherName } },
         actions: ["learn_other", "talk_agent"],
-        tip: `📞 Please call us at ${AGENT_PHONE}.`,
-        meta: { otherCardName: otherName },
       });
     }
 
@@ -466,18 +474,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (text === "learn_other") {
-      const name =
-        context.learnOptions?.a || context.learnOptions?.b || "Student Essentials Card";
+      // Force re-capture: start questions fresh for the new card
+      const name = context.learnOptions?.a || context.learnOptions?.b || "Student Essentials Card";
       const picked =
-        cards.find(c => c.name === name) ||
-        cards.find(c => /student essentials/i.test(c.name));
+        cards.find((c) => c.name === name) ||
+        cards.find((c) => /student essentials/i.test(c.name));
+
       if (picked) {
+        const resetSlots: Slots = { ...slots, age: null, employment: null, income: null };
         return NextResponse.json({
           reply:
             `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
-            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
             `Let’s check your eligibility.\n` + askFor("age", picked),
-          slots,
+          slots: resetSlots,
           done: false,
           context: { mode: "learn", selectedCard: picked.name, learnOptions: undefined },
           actions: [],
