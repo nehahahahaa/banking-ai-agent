@@ -12,9 +12,14 @@ type Slots = {
 };
 
 type Context = {
-  mode?: "learn" | "compare" | "recommend";
+  mode?:
+    | "learn"
+    | "compare"
+    | "compare_post"     // after compare result, awaiting learn-more choice
+    | "learn_one_shot"   // collect age+employment+income in one go for selected card
+    | "recommend";
   selectedCard?: string;
-  compare?: { a: string; b?: string };
+  compare?: { a: string; b: string };
 };
 
 /* ========= Helpers ========= */
@@ -226,7 +231,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 2) PERSISTED COMPARE: full (a+b) — resume after we collected a missing slot */
+    /* 2) PERSISTED COMPARE: if we asked for a missing slot, resume compare after we capture it */
     if (context.mode === "compare" && context.compare?.a && context.compare?.b) {
       const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
@@ -235,59 +240,29 @@ export async function POST(req: NextRequest) {
       }
       const cardA = cards.find((c) => c.name === context.compare!.a)!;
       const cardB = cards.find((c) => c.name === context.compare!.b)!;
-      const resA = scoreCard(cardA as any, s as any);
-      const resB = scoreCard(cardB as any, s as any);
+
+      // Side-by-side snapshot (no eligibility claims here)
       const reply = [
-        `⚖️ Comparison for your profile:`,
-        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
-        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
-        resA.score > resB.score
-          ? `👉 Best for you: **${cardA.name}**`
-          : resB.score > resA.score
-          ? `👉 Best for you: **${cardB.name}**`
-          : `Both cards are equally suitable based on your profile.`,
+        `⚖️ Comparison:`,
+        `• ${cardA.name} — ${(cardA.benefits || []).join(", ")}`,
+        `  Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}`,
+        `• ${cardB.name} — ${(cardB.benefits || []).join(", ")}`,
+        `  Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`,
+        ``,
+        `What next?`,
+        `[Learn more about ${cardA.name}] [Learn more about ${cardB.name}]`,
       ].join("\n");
-      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+
+      return NextResponse.json({
+        reply,
+        slots: s,
+        done: false,
+        context: { mode: "compare_post", compare: { a: cardA.name, b: cardB.name } }, // await one-shot learn-more pick
+        actions: ["learn_A", "learn_B"], // UI can map to labels above
+      });
     }
 
-    /* 3) PERSISTED COMPARE: partial (only a) — user now sends the other card number/name */
-    if (context.mode === "compare" && context.compare?.a && !context.compare.b) {
-      const other = pickCardFromText(message);
-      if (!other) {
-        // prompt again with numbered options
-        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
-        return NextResponse.json({
-          reply: `Which card would you like to compare with **${context.compare.a}**?\nReply with the number (1–3) or the name:\n\n${list}`,
-          slots,
-          done: false,
-          context,
-        });
-      }
-      // we have both → proceed like a normal compare
-      context.compare.b = other.name;
-      const s = updateSlotsFromMessage(slots, message);
-      const missing = nextMissingSlot(s);
-      if (missing) {
-        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
-      }
-      const cardA = cards.find((c) => c.name === context.compare!.a)!;
-      const cardB = other;
-      const resA = scoreCard(cardA as any, s as any);
-      const resB = scoreCard(cardB as any, s as any);
-      const reply = [
-        `⚖️ Comparison for your profile:`,
-        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
-        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
-        resA.score > resB.score
-          ? `👉 Best for you: **${cardA.name}**`
-          : resB.score > resA.score
-          ? `👉 Best for you: **${cardB.name}**`
-          : `Both cards are equally suitable based on your profile.`,
-      ].join("\n");
-      return NextResponse.json({ reply, slots: s, done: true, context: {} });
-    }
-
-    /* 4) COMPARE: "compare A vs B" (numbers or names) */
+    /* 3) COMPARE: "compare A vs B" (numbers or names) */
     const compareMatch = text.match(/compare\s+(.+?)\s+vs\s+(.+)/i);
     if (compareMatch) {
       const aTok = compareMatch[1].trim();
@@ -311,60 +286,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
       }
 
-      const resA = scoreCard(cardA as any, s as any);
-      const resB = scoreCard(cardB as any, s as any);
+      // Side-by-side snapshot (no eligibility claims here)
       const reply = [
-        `⚖️ Comparison for your profile:`,
-        `- **${cardA.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
-        `- **${cardB.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
-        resA.score > resB.score
-          ? `👉 Best for you: **${cardA.name}**`
-          : resB.score > resA.score
-          ? `👉 Best for you: **${cardB.name}**`
-          : `Both cards are equally suitable based on your profile.`,
+        `⚖️ Comparison:`,
+        `• ${cardA.name} — ${(cardA.benefits || []).join(", ")}`,
+        `  Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}`,
+        `• ${cardB.name} — ${(cardB.benefits || []).join(", ")}`,
+        `  Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`,
+        ``,
+        `What next?`,
+        `[Learn more about ${cardA.name}] [Learn more about ${cardB.name}]`,
       ].join("\n");
-      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+
+      return NextResponse.json({
+        reply,
+        slots: s,
+        done: false,
+        context: { mode: "compare_post", compare: { a: cardA.name, b: cardB.name } },
+        actions: ["learn_A", "learn_B"],
+      });
     }
 
-    /* 5) COMPARE: "compare with <card>" (button text from UI after Learn More)
-          — also handles "compare with" (no target) by prompting for the second card */
-    const compareWithMatch = text.match(/compare\s+with(?:\s+(.+))?$/i);
-    if (compareWithMatch) {
-      // need a base card; prefer selectedCard from Learn mode
-      const baseName = context.selectedCard;
-      const baseCard = baseName ? cards.find((c) => c.name === baseName) : undefined;
-
-      if (!baseCard) {
-        // No base selected; ask user to pick base first
-        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
+    /* 4) COMPARE: "compare with <card>" (button text from UI after Learn More) */
+    const compareWithMatch = text.match(/compare\s+with\s+(.+)/i);
+    if (compareWithMatch && context.selectedCard) {
+      const baseCard = cards.find((c) => c.name === context.selectedCard);
+      const otherCard = pickCardFromText(compareWithMatch[1]);
+      if (!baseCard || !otherCard) {
         return NextResponse.json({
-          reply: `Which card should we start from?\nReply with the number (1–3) or the name:\n\n${list}`,
-          slots,
-          done: false,
-          context: { mode: "compare" }, // enter compare mode
-        });
-      }
-
-      // If no second card specified: set partial compare and prompt for second
-      const otherToken = (compareWithMatch[1] || "").trim();
-      if (!otherToken) {
-        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
-        context = { mode: "compare", compare: { a: baseCard.name } }; // partial compare (only a)
-        return NextResponse.json({
-          reply: `Which card would you like to compare with **${baseCard.name}**?\nReply with the number (1–3) or the name:\n\n${list}`,
-          slots,
-          done: false,
-          context,
-        });
-      }
-
-      // We have a second token → resolve immediately
-      const otherCard = pickCardFromText(otherToken);
-      if (!otherCard) {
-        const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
-        context = { mode: "compare", compare: { a: baseCard.name } };
-        return NextResponse.json({
-          reply: `I couldn’t find that card. Reply with the number (1–3) or the name:\n\n${list}`,
+          reply: "I couldn’t find that card to compare. Use 1–3 or the full name.",
           slots,
           done: false,
           context,
@@ -378,22 +328,135 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
       }
 
-      const resA = scoreCard(baseCard as any, s as any);
-      const resB = scoreCard(otherCard as any, s as any);
+      // Side-by-side snapshot only
       const reply = [
-        `⚖️ Comparison for your profile:`,
-        `- **${baseCard.name}**: ${resA.reasons.length ? resA.reasons.join("; ") : resA.failures.join("; ")}`,
-        `- **${otherCard.name}**: ${resB.reasons.length ? resB.reasons.join("; ") : resB.failures.join("; ")}`,
-        resA.score > resB.score
-          ? `👉 Best for you: **${baseCard.name}**`
-          : resB.score > resA.score
-          ? `👉 Best for you: **${otherCard.name}**`
-          : `Both cards are equally suitable based on your profile.`,
+        `⚖️ Comparison:`,
+        `• ${baseCard.name} — ${(baseCard.benefits || []).join(", ")}`,
+        `  Min income: $${baseCard.minIncome} · Age: ${baseCard.eligibleAges.join("-")} · Employment: ${baseCard.employmentTypes.join(", ")}`,
+        `• ${otherCard.name} — ${(otherCard.benefits || []).join(", ")}`,
+        `  Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${otherCard.employmentTypes.join(", ")}`,
+        ``,
+        `What next?`,
+        `[Learn more about ${baseCard.name}] [Learn more about ${otherCard.name}]`,
       ].join("\n");
-      return NextResponse.json({ reply, slots: s, done: true, context: {} });
+
+      return NextResponse.json({
+        reply,
+        slots: s,
+        done: false,
+        context: { mode: "compare_post", compare: { a: baseCard.name, b: otherCard.name } },
+        actions: ["learn_A", "learn_B"],
+      });
     }
 
-    /* 6) LEARN MORE: prompt to choose a card */
+    /* 5) AFTER COMPARE: learn-more selection → switch to one-shot capture */
+    if (context.mode === "compare_post" && context.compare?.a && context.compare?.b) {
+      // e.g., "learn more about Professional Plus" or just "learn Professional Plus"
+      const learnSel =
+        text.match(/learn(?:\s+more)?\s+about\s+(.+)/i)?.[1] ??
+        text.match(/^learn(?:\s+more)?\s+(.+)/i)?.[1];
+
+      if (learnSel) {
+        const picked =
+          pickCardFromText(learnSel) ||
+          [context.compare.a, context.compare.b].map(n => cards.find(c => c.name === n)).find(Boolean);
+
+        if (picked) {
+          context = { mode: "learn_one_shot", selectedCard: picked.name };
+          return NextResponse.json({
+            reply:
+              `Great — **${picked.name}**.\n` +
+              `Please reply with your **age**, **employment type** (salaried, self-employed, student, retired), and **monthly income (USD)**.\n\n` +
+              `Example: "Age 30, salaried, $8,000"`,
+            slots,
+            done: false,
+            context,
+            actions: [], // no extra buttons at this prompt
+          });
+        }
+      }
+    }
+
+    /* 6) ONE-SHOT ELIGIBILITY for the selected card (age + employment + income in one turn) */
+    if (context.mode === "learn_one_shot" && context.selectedCard) {
+      let s = { ...slots };
+
+      // Parse all three from a single user reply
+      const ageInline = (() => {
+        const m = message.match(/\bage\s*:?\.?\s*(\d{1,2})\b/i) || message.match(/\b(\d{1,2})\s*(years|yrs|yo)\b/i) || message.match(/\b(\d{1,2})\b/);
+        return m ? Number(m[1]) : undefined;
+      })();
+      const empInline = normalizeEmployment(message);
+      const incInline = parseIncomeFromText(message);
+
+      if (typeof ageInline === "number") s.age = ageInline;
+      if (empInline) s.employment = empInline;
+      if (typeof incInline === "number") s.income = incInline;
+
+      // If still missing, ask for the missing piece (keep it simple: one question at a time)
+      const missing = nextMissingSlot(s);
+      if (missing) {
+        return NextResponse.json({
+          reply: askFor(missing),
+          slots: s,
+          done: false,
+          context, // still in learn_one_shot
+        });
+      }
+
+      // All present → score the selected card
+      const selected = cards.find((c) => c.name === context.selectedCard)!;
+      const { score, reasons, failures } = scoreCard(selected as any, s as any);
+
+      if (failures.length === 0 && score >= 3) {
+        return NextResponse.json({
+          reply: `✅ You’re eligible for **${selected.name}**. Apply now?`,
+          slots: s,
+          done: false,
+          context, // keep context until user applies or leaves
+          actions: ["apply"],
+        });
+      } else {
+        // Offer student card or agent if not eligible
+        const studentCard = cards.find(c => /student/i.test(c.name));
+        const learnAlt =
+          selected.name.toLowerCase().includes("student")
+            ? "" // already on student; no alt student button
+            : studentCard
+            ? ` [Learn about ${studentCard.name}]`
+            : "";
+
+        const agentLine = ` [Talk to Agent]`;
+        const body =
+          `❌ You’re not eligible for **${selected.name}**.\n\n` +
+          (failures.length ? failures.join("\n") : "") +
+          (reasons.length ? `\n\n${reasons.join("\n")}` : "");
+
+        return NextResponse.json({
+          reply: `${body}\n\nWould you like to explore an alternative or talk to an agent?${learnAlt}${agentLine}`,
+          slots: s,
+          done: false,
+          context,
+          actions: [
+            ...(learnAlt ? ["learn_student"] as const : []),
+            "agent",
+          ],
+        });
+      }
+    }
+
+    /* 7) AGENT handoff (simple) */
+    if (/\btalk to agent\b|\bagent\b/.test(text)) {
+      return NextResponse.json({
+        reply: "Connecting you to an agent. Please call our toll-free number: **1-800-555-1234**.",
+        slots,
+        done: true,
+        context: {},
+        actions: [],
+      });
+    }
+
+    /* 8) LEARN MORE (original flow still supported) */
     if (/learn more/.test(text)) {
       context = { mode: "learn" };
       return NextResponse.json({
@@ -404,7 +467,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 7) LEARN MORE: select a card (in learn mode or explicit selection) */
     if (context.mode === "learn" || /(details|about)\b/.test(text) || /^[1-3]$/.test(text)) {
       if (!context.selectedCard) {
         const selected = pickCardFromText(message);
@@ -419,9 +481,9 @@ export async function POST(req: NextRequest) {
 
           const tip =
             "💡 Tip: You can also ask:\n" +
-            `• "Compare with Student Essentials"\n` +
-            `• "Am I eligible with $8,000 income and age 30?"\n` +
-            `• "Apply now"`;
+            `• \"Compare with Student Essentials\"\n` +
+            `• \"Am I eligible with $8,000 income and age 30?\"\n` +
+            `• \"Apply now\"`;
 
           return NextResponse.json({
             reply: `${details}\n\nWhat would you like to do next?`,
@@ -435,7 +497,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 8) LEARN MORE: "Am I eligible ..." for the selected card */
+    /* 9) LEARN MORE: "Am I eligible ..." (legacy per-card eligibility) */
     if (context.mode === "learn" && context.selectedCard && /eligible/.test(text)) {
       const selected = cards.find((c) => c.name === context.selectedCard);
       if (selected) {
@@ -479,7 +541,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 9) LEARN MORE: capture employment mid-eligibility */
+    /* 10) LEARN MORE: capture employment mid-eligibility (legacy) */
     if (context.mode === "learn" && context.selectedCard && !slots.employment) {
       const emp = normalizeEmployment(message);
       if (emp) {
@@ -509,7 +571,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 10) Quick intents */
+    /* 11) Quick intents */
     if (/apply now|apply|continue/.test(text)) {
       return NextResponse.json({
         reply: "Great! You can start your application in the app. Want me to pre-check eligibility first?",
@@ -562,7 +624,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* 11) Fallback */
+    /* 12) Fallback */
     return NextResponse.json({
       reply: "I’m here to help with cards. Use the buttons: Recommend, Learn More, or Compare.",
       slots,
