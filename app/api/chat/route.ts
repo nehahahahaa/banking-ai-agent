@@ -110,9 +110,12 @@ function askFor(
     return `What is your age?\nHint: ${name} requires ${minA}–${maxA}.`;
   }
   if (slot === "employment") {
-    const allowed = "salaried, student, retired"; // 🔧 limit prompt list
-    const hrHint = card?.name?.toLowerCase().includes("professional plus") ? " Hint: choose salaried." : "";
-    return `What is your employment type? (${allowed})${hrHint}`;
+    // UPDATED: card-specific allowed list + hint; hides self-employed in label
+    const list = formatEmploymentList(card?.employmentTypes || ["salaried", "student", "retired"]);
+    const allowed = list || "salaried, student, retired";
+    const only = allowed.split(/\s*,\s*/).filter(Boolean);
+    const hint = only.length === 1 ? ` Hint: choose ${only[0]}.` : "";
+    return `What is your employment type? (${allowed})${hint}`;
   }
   if (slot === "income") {
     const annual = card?.minIncome ?? 0;
@@ -137,9 +140,15 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
     const emp = normalizeEmployment(t);
     if (emp) s.employment = emp;
   }
+  // UPDATED: be permissive for income once age & employment known
   if (s.income == null) {
     const income = parseIncomeFromText(t);
-    if (income != null) s.income = income;
+    if (income != null) {
+      s.income = income;
+    } else if (s.age != null && s.employment) {
+      const n = extractNumber(t);
+      if (n != null) s.income = n; // allows small numbers like 100
+    }
   }
   if (
     s.hasCosigner == null &&
@@ -232,11 +241,14 @@ export async function POST(req: NextRequest) {
         preference: s.preference ?? null,
         hasCosigner: s.hasCosigner === true,
       } as any);
+      // UPDATED: add CTA apply
+      const msg = (engine?.message || "Here are your recommendations.") + "\n\nWould you like to apply?";
       return NextResponse.json({
-        reply: engine?.message || "Here are your recommendations.",
+        reply: msg,
         slots: s,
-        done: true,
+        done: false,
         context: {},
+        actions: ["apply"],
       });
     }
 
@@ -351,12 +363,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* 6) Learn_A / Learn_B buttons */
+    /* 6) Learn_A / Learn_B buttons (PRESERVE learnOptions) */
     if (/^learn[_\s]?a$/i.test(text) || /^learn more about a$/i.test(text)) {
       const name = context.learnOptions?.a;
       const picked = name ? cards.find((c) => c.name === name) : undefined;
       if (picked) {
-        context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
+        // UPDATED: preserve learnOptions
+        context = { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions };
         return NextResponse.json({
           reply:
             `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
@@ -373,7 +386,8 @@ export async function POST(req: NextRequest) {
       const name = context.learnOptions?.b;
       const picked = name ? cards.find((c) => c.name === name) : undefined;
       if (picked) {
-        context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
+        // UPDATED: preserve learnOptions
+        context = { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions };
         return NextResponse.json({
           reply:
             `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
@@ -460,6 +474,7 @@ export async function POST(req: NextRequest) {
         // keep "other" in context so learn_other uses it
         context: { mode: "learn", selectedCard: undefined, learnOptions: { a: otherName, b: otherName } },
         actions: ["learn_other", "talk_agent"],
+        meta: { otherCardName: otherName }, // UPDATED: provide label for UI
       });
     }
 
@@ -524,11 +539,14 @@ export async function POST(req: NextRequest) {
         preference: s.preference ?? null,
         hasCosigner: s.hasCosigner === true,
       } as any);
+      // UPDATED: add CTA apply
+      const msg = (engine?.message || "Here are your recommendations.") + "\n\nWould you like to apply?";
       return NextResponse.json({
-        reply: engine?.message || "Here are your recommendations.",
+        reply: msg,
         slots: s,
-        done: true,
+        done: false,
         context: {},
+        actions: ["apply"],
       });
     }
 
