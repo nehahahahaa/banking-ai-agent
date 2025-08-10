@@ -20,14 +20,14 @@ function normalizeActionKeys(actions: unknown): string[] {
     .filter(Boolean);
 }
 
-// Extract “Hint:” lines from a message and return { mainText, hints[] }
+// Keep "Hint:" label in badges
 function splitHints(text: string): { main: string; hints: string[] } {
   const lines = String(text || "").split(/\r?\n/);
   const hints: string[] = [];
   const mainLines: string[] = [];
   for (const line of lines) {
     if (/^\s*hint\s*:/i.test(line)) {
-      hints.push(line.replace(/^\s*hint\s*:\s*/i, "").trim());
+      hints.push(line.trim()); // keep "Hint: …"
     } else {
       mainLines.push(line);
     }
@@ -39,31 +39,28 @@ function splitHints(text: string): { main: string; hints: string[] } {
 export function ChatAssistant({ language, userContext }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([]);
-  const [input, setInput] = useState("");
+  // Coerce zeros/empty to null so API will ask for them
   const [slots, setSlots] = useState<ChatSlots>({
-    income: userContext?.income ?? null,
-    age: userContext?.age ?? null,
-    employment: userContext?.employment ?? null,
+    income: userContext?.income && userContext.income > 0 ? userContext.income : null,
+    age: userContext?.age && userContext.age > 0 ? userContext.age : null,
+    employment: userContext?.employment?.trim() ? userContext.employment : null,
     preference: userContext?.preference ?? null,
     hasCosigner: null,
   });
 
-  // Server-driven multi-turn state
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([]);
+  const [input, setInput] = useState("");
   const [context, setContext] = useState<any>({});
-
   const [isFirstTurn, setIsFirstTurn] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // We still parse first two names from intro (harmless if unused)
-  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]);
+  // We still parse names on intro, but we don’t read them; avoid noUnusedLocals
+  const [, setFirstTwoCards] = useState<string[]>([]);
 
   // Server-driven actions/tip/meta
   const [actions, setActions] = useState<string[]>([]);
   const [tip, setTip] = useState<string>("");
   const [meta, setMeta] = useState<any>({});
-
-  // Normalize actions for robust matching
   const normActions = useMemo(() => new Set(normalizeActionKeys(actions)), [actions]);
 
   const firstBotIndex = useMemo(
@@ -118,137 +115,120 @@ export function ChatAssistant({ language, userContext }: Props) {
     }
   };
 
-  // ✅ Updated: always prompt on Compare (no auto “1 vs 2”)
+  // Always prompt on Compare (no auto “1 vs 2”)
   const handleIntroQuickAction = (type: "recommend" | "learn" | "compare") => {
-    if (type === "recommend") {
-      sendMessage("recommend a card for me");
-    } else if (type === "learn") {
-      sendMessage("learn more");
-    } else if (type === "compare") {
-      sendMessage("compare"); // always prompt instead of auto-picking 1 vs 2
-    }
+    if (type === "recommend") sendMessage("recommend a card for me");
+    else if (type === "learn") sendMessage("learn more");
+    else if (type === "compare") sendMessage("compare"); // prompt every time
   };
 
-  // Render server-driven buttons + tip (and keep hints visible)
+  // Buttons/tip renderer — TIP ONLY shows when there are NO actions
   const renderActions = (whereIdx: number, isFirstBot: boolean, isLatestBot: boolean) => {
-    // Case 1: First bot reply → exactly 3 buttons
+    // First bot reply → 3 buttons (no tip here)
     if (
       isFirstBot &&
       (normActions.has("recommend") || normActions.has("learn") || normActions.has("compare"))
     ) {
       return (
-        <>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {normActions.has("recommend") && (
-              <button
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-                onClick={() => handleIntroQuickAction("recommend")}
-              >
-                Recommend a card for me
-              </button>
-            )}
-            {normActions.has("learn") && (
-              <button
-                className="px-3 py-1 text-sm bg-green-200 rounded"
-                onClick={() => handleIntroQuickAction("learn")}
-              >
-                Learn More
-              </button>
-            )}
-            {normActions.has("compare") && (
-              <button
-                className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                onClick={() => handleIntroQuickAction("compare")}
-              >
-                Compare Cards
-              </button>
-            )}
-          </div>
-          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
-        </>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {normActions.has("recommend") && (
+            <button
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+              onClick={() => handleIntroQuickAction("recommend")}
+            >
+              Recommend a card for me
+            </button>
+          )}
+          {normActions.has("learn") && (
+            <button
+              className="px-3 py-1 text-sm bg-green-200 rounded"
+              onClick={() => handleIntroQuickAction("learn")}
+            >
+              Learn More
+            </button>
+          )}
+          {normActions.has("compare") && (
+            <button
+              className="px-3 py-1 text-sm bg-yellow-200 rounded"
+              onClick={() => handleIntroQuickAction("compare")}
+            >
+              Compare Cards
+            </button>
+          )}
+        </div>
       );
     }
 
-    // Only attach follow-up buttons to the latest bot message
     if (!isLatestBot) return null;
 
-    // Case 2: After Compare (or two-pick Learn) → two Learn buttons only
+    // After compare/two-pick → two learn buttons only (no tip here)
     if (normActions.has("learn_a") || normActions.has("learn_b")) {
       const labelA = meta?.learnA || "Card A";
       const labelB = meta?.learnB || "Card B";
       return (
-        <>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {normActions.has("learn_a") && (
-              <button
-                className="px-3 py-1 text-sm bg-green-200 rounded"
-                onClick={() => sendMessage("learn_A")}
-              >
-                Learn more about {labelA}
-              </button>
-            )}
-            {normActions.has("learn_b") && (
-              <button
-                className="px-3 py-1 text-sm bg-green-200 rounded"
-                onClick={() => sendMessage("learn_B")}
-              >
-                Learn more about {labelB}
-              </button>
-            )}
-          </div>
-          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
-        </>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {normActions.has("learn_a") && (
+            <button
+              className="px-3 py-1 text-sm bg-green-200 rounded"
+              onClick={() => sendMessage("learn_A")}
+            >
+              Learn more about {labelA}
+            </button>
+          )}
+          {normActions.has("learn_b") && (
+            <button
+              className="px-3 py-1 text-sm bg-green-200 rounded"
+              onClick={() => sendMessage("learn_B")}
+            >
+              Learn more about {labelB}
+            </button>
+          )}
+        </div>
       );
     }
 
-    // Case 3: Eligible → only Apply
+    // Eligible → Apply (no tip here)
     if (normActions.has("apply")) {
       return (
-        <>
-          <div className="mt-3">
-            <button
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
-              onClick={() => sendMessage("apply")}
-            >
-              Apply
-            </button>
-          </div>
-          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
-        </>
+        <div className="mt-3">
+          <button
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+            onClick={() => sendMessage("apply")}
+          >
+            Apply
+          </button>
+        </div>
       );
     }
 
-    // Case 4: Not eligible → Learn Other / Talk to Agent (dynamic other card label)
+    // Not eligible → Learn Other / Talk to Agent (no tip here)
     if (normActions.has("learn_other") || normActions.has("talk_agent")) {
       const otherCardName: string | undefined = meta?.otherCardName;
       const otherLabel = otherCardName ? `Learn about ${otherCardName}` : "Learn about another card";
       return (
-        <>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {normActions.has("learn_other") && (
-              <button
-                className="px-3 py-1 text-sm bg-green-200 rounded"
-                onClick={() => sendMessage("learn_other")}
-              >
-                {otherLabel}
-              </button>
-            )}
-            {normActions.has("talk_agent") && (
-              <button
-                className="px-3 py-1 text-sm bg-gray-200 rounded"
-                onClick={() => sendMessage("talk_agent")}
-              >
-                Talk to Agent
-              </button>
-            )}
-          </div>
-          {tip && <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>}
-        </>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {normActions.has("learn_other") && (
+            <button
+              className="px-3 py-1 text-sm bg-green-200 rounded"
+              onClick={() => sendMessage("learn_other")}
+            >
+              {otherLabel}
+            </button>
+          )}
+          {normActions.has("talk_agent") && (
+            <button
+              className="px-3 py-1 text-sm bg-gray-200 rounded"
+              onClick={() => sendMessage("talk_agent")}
+            >
+              Talk to Agent
+            </button>
+          )}
+        </div>
       );
     }
 
-    // Generic tip/hints for any other step
-    if (tip) {
+    // Only show tip when NO actions are present (e.g., after “Talk to Agent”)
+    if (tip && actions.length === 0) {
       return <div className="mt-2 text-xs text-gray-600 whitespace-pre-line">{tip}</div>;
     }
 
@@ -269,8 +249,8 @@ export function ChatAssistant({ language, userContext }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
-      {/* Header with close; include language so param is used */}
+    <div className="fixed bottom-6 right-6 z-50 w-[460px] h-[72vh] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-blue-700 text-white rounded-t-2xl">
         <div className="font-semibold">
           Banking Assistant{language ? ` • ${language.toUpperCase()}` : ""}
@@ -301,10 +281,8 @@ export function ChatAssistant({ language, userContext }: Props) {
                 m.from === "user" ? "bg-blue-100 self-end ml-auto" : "bg-gray-100 self-start"
               }`}
             >
-              {/* main body (without the "Hint:" lines) */}
               <div className="whitespace-pre-line">{main}</div>
 
-              {/* hint badges (if any) */}
               {isBot && hints.length > 0 && (
                 <div className="mt-2 space-y-1">
                   {hints.map((h, i) => (
@@ -318,7 +296,6 @@ export function ChatAssistant({ language, userContext }: Props) {
                 </div>
               )}
 
-              {/* Server-driven buttons/tips */}
               {isBot && renderActions(idx, isFirstBot, isLatestBot)}
             </div>
           );
