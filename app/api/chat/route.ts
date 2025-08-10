@@ -12,14 +12,10 @@ type Slots = {
 };
 
 type Context = {
-  mode?:
-    | "learn"
-    | "compare"
-    | "compare_post"     // after compare result, awaiting learn-more choice
-    | "learn_one_shot"   // collect age+employment+income in one go for selected card
-    | "recommend";
+  mode?: "learn" | "compare" | "recommend";
   selectedCard?: string;
-  compare?: { a: string; b: string };
+  // store two-card choices for follow-up Learn buttons (from compare OR "1, 2" selection)
+  learnOptions?: { a: string; b: string };
 };
 
 /* ========= Helpers ========= */
@@ -108,14 +104,27 @@ function nextMissingSlot(slots: Slots): keyof Slots | null {
   return null;
 }
 
-function askFor(slot: keyof Slots): string {
-  switch (slot) {
-    case "age": return "What is your age?";
-    case "employment": return "What is your employment type? (salaried, self-employed, student, retired)";
-    case "income": return "What is your monthly income (USD)?";
-    case "hasCosigner": return "Do you have a qualified cosigner? (yes/no)";
-    default: return "Tell me about your preference (e.g., travel, cashback, no annual fee).";
+/** Hinted prompts (card-aware). The word "Hint" per your request. */
+function askFor(slot: keyof Slots, card?: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }): string {
+  const name = card?.name || "this card";
+  if (slot === "age") {
+    const [minA, maxA] = card?.eligibleAges || [18, 99];
+    return `What is your age?\nHint: ${name} requires ${minA}–${maxA}.`;
   }
+  if (slot === "employment") {
+    const allowed = card?.employmentTypes?.join(", ") || "salaried, self-employed, student, retired";
+    const hrHint = card?.employmentTypes?.includes("salaried") ? " Hint: choose salaried." : "";
+    return `What is your employment type? (${allowed})${hrHint}`;
+  }
+  if (slot === "income") {
+    const annual = card?.minIncome ?? 0;
+    const monthlyApprox = Math.round(annual / 12);
+    return `What is your monthly income (USD)?\nHint: ${name} minimum is ~$${annual} annual ≈ $${monthlyApprox}/mo.`;
+  }
+  if (slot === "hasCosigner") {
+    return "Do you have a qualified cosigner? (yes/no)";
+  }
+  return "Tell me about your preference (e.g., travel, cashback, no annual fee).";
 }
 
 function updateSlotsFromMessage(slots: Slots, message: string): Slots {
@@ -159,7 +168,7 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
   return s;
 }
 
-/** Numbered intro + (your UI shows buttons from actions[]) */
+/** Numbered intro + only 3 actions on first message */
 function formatIntro() {
   const list = cards.slice(0, 3).map((c, i) => {
     const perks = (c.benefits || []).join(", ");
@@ -184,30 +193,17 @@ function pickCardFromText(text: string) {
   );
 }
 
-function renderEngineReply(engine: any): string {
-  if (engine?.type === "full-match") return `🧠 Builds trust by showing logic clearly\n${engine.message}`;
-  if (engine?.type === "multiple-match") return `🟢 Transparent + ranked choices\n${engine.message}`;
-  if (engine?.type === "partial-match") {
-    const failures: string[] = engine.failures || [];
-    const out: string[] = [`⚠️ Partial match – explained clearly`, engine.message];
-    let current: string | null = null;
-    failures.forEach((line) => {
-      if (line.endsWith(":")) {
-        current = line.slice(0, -1);
-        out.push(`\n${current}:`);
-      } else {
-        out.push(`- ${line.replace(/^[-•]\s*/, "")}`);
-      }
-    });
-    return out.join("\n");
-  }
-  return engine?.message || "❌ No card matches your inputs right now.";
-}
-
 /* ========= Route ========= */
 export async function POST(req: NextRequest) {
   try {
-    const { message, slots: incomingSlots, firstTurn, context: incomingCtx } = await req.json();
+    const body = await req.json();
+    const { message, slots: incomingSlots, firstTurn, context: incomingCtx } = body as {
+      message: string;
+      slots: Slots;
+      firstTurn: boolean;
+      context?: Context;
+    };
+
     const text = String(message || "").toLowerCase();
 
     const slots: Slots = {
@@ -220,49 +216,18 @@ export async function POST(req: NextRequest) {
 
     let context: Context = incomingCtx || {};
 
-    /* 1) Intro ALWAYS on first turn */
+    /* 1) Intro ALWAYS on first turn — 3 buttons only */
     if (firstTurn) {
       return NextResponse.json({
         reply: formatIntro(),
         slots,
         done: false,
         context,
-        actions: ["recommend", "learn", "compare"], // UI renders these buttons
+        actions: ["recommend", "learn", "compare"], // exactly 3
       });
     }
 
-    /* 2) PERSISTED COMPARE: if we asked for a missing slot, resume compare after we capture it */
-    if (context.mode === "compare" && context.compare?.a && context.compare?.b) {
-      const s = updateSlotsFromMessage(slots, message);
-      const missing = nextMissingSlot(s);
-      if (missing) {
-        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
-      }
-      const cardA = cards.find((c) => c.name === context.compare!.a)!;
-      const cardB = cards.find((c) => c.name === context.compare!.b)!;
-
-      // Side-by-side snapshot (no eligibility claims here)
-      const reply = [
-        `⚖️ Comparison:`,
-        `• ${cardA.name} — ${(cardA.benefits || []).join(", ")}`,
-        `  Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}`,
-        `• ${cardB.name} — ${(cardB.benefits || []).join(", ")}`,
-        `  Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`,
-        ``,
-        `What next?`,
-        `[Learn more about ${cardA.name}] [Learn more about ${cardB.name}]`,
-      ].join("\n");
-
-      return NextResponse.json({
-        reply,
-        slots: s,
-        done: false,
-        context: { mode: "compare_post", compare: { a: cardA.name, b: cardB.name } }, // await one-shot learn-more pick
-        actions: ["learn_A", "learn_B"], // UI can map to labels above
-      });
-    }
-
-    /* 3) COMPARE: "compare A vs B" (numbers or names) */
+    /* 2) COMPARE: "compare A vs B" (numbers or names). After compare → ONLY two Learn buttons */
     const compareMatch = text.match(/compare\s+(.+?)\s+vs\s+(.+)/i);
     if (compareMatch) {
       const aTok = compareMatch[1].trim();
@@ -279,35 +244,23 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const s = updateSlotsFromMessage(slots, message);
-      const missing = nextMissingSlot(s);
-      if (missing) {
-        context = { mode: "compare", compare: { a: cardA.name, b: cardB.name } }; // persist intent
-        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
-      }
-
-      // Side-by-side snapshot (no eligibility claims here)
-      const reply = [
-        `⚖️ Comparison:`,
-        `• ${cardA.name} — ${(cardA.benefits || []).join(", ")}`,
-        `  Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}`,
-        `• ${cardB.name} — ${(cardB.benefits || []).join(", ")}`,
-        `  Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`,
-        ``,
-        `What next?`,
-        `[Learn more about ${cardA.name}] [Learn more about ${cardB.name}]`,
-      ].join("\n");
+      // Side-by-side snapshot (no “best/equal” claims)
+      const reply =
+        `**${cardA.name}** — ${(cardA.benefits || []).join(", ")}\n` +
+        `Min income: $${cardA.minIncome} · Age: ${cardA.eligibleAges.join("-")} · Employment: ${cardA.employmentTypes.join(", ")}\n\n` +
+        `**${cardB.name}** — ${(cardB.benefits || []).join(", ")}\n` +
+        `Min income: $${cardB.minIncome} · Age: ${cardB.eligibleAges.join("-")} · Employment: ${cardB.employmentTypes.join(", ")}`;
 
       return NextResponse.json({
         reply,
-        slots: s,
+        slots,
         done: false,
-        context: { mode: "compare_post", compare: { a: cardA.name, b: cardB.name } },
-        actions: ["learn_A", "learn_B"],
+        context: { mode: "learn", learnOptions: { a: cardA.name, b: cardB.name } }, // prepare learn buttons
+        actions: ["learn_A", "learn_B"], // only two buttons
       });
     }
 
-    /* 4) COMPARE: "compare with <card>" (button text from UI after Learn More) */
+    /* 3) COMPARE: "compare with <card>" after a Learn More selection → only two Learn buttons */
     const compareWithMatch = text.match(/compare\s+with\s+(.+)/i);
     if (compareWithMatch && context.selectedCard) {
       const baseCard = cards.find((c) => c.name === context.selectedCard);
@@ -321,144 +274,24 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const s = updateSlotsFromMessage(slots, message);
-      const missing = nextMissingSlot(s);
-      if (missing) {
-        context = { mode: "compare", compare: { a: baseCard.name, b: otherCard.name } };
-        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
-      }
-
-      // Side-by-side snapshot only
-      const reply = [
-        `⚖️ Comparison:`,
-        `• ${baseCard.name} — ${(baseCard.benefits || []).join(", ")}`,
-        `  Min income: $${baseCard.minIncome} · Age: ${baseCard.eligibleAges.join("-")} · Employment: ${baseCard.employmentTypes.join(", ")}`,
-        `• ${otherCard.name} — ${(otherCard.benefits || []).join(", ")}`,
-        `  Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${otherCard.employmentTypes.join(", ")}`,
-        ``,
-        `What next?`,
-        `[Learn more about ${baseCard.name}] [Learn more about ${otherCard.name}]`,
-      ].join("\n");
+      const reply =
+        `**${baseCard.name}** — ${(baseCard.benefits || []).join(", ")}\n` +
+        `Min income: $${baseCard.minIncome} · Age: ${baseCard.eligibleAges.join("-")} · Employment: ${baseCard.employmentTypes.join(", ")}\n\n` +
+        `**${otherCard.name}** — ${(otherCard.benefits || []).join(", ")}\n` +
+        `Min income: $${otherCard.minIncome} · Age: ${otherCard.eligibleAges.join("-")} · Employment: ${otherCard.employmentTypes.join(", ")}`;
 
       return NextResponse.json({
         reply,
-        slots: s,
+        slots,
         done: false,
-        context: { mode: "compare_post", compare: { a: baseCard.name, b: otherCard.name } },
+        context: { mode: "learn", learnOptions: { a: baseCard.name, b: otherCard.name } },
         actions: ["learn_A", "learn_B"],
       });
     }
 
-    /* 5) AFTER COMPARE: learn-more selection → switch to one-shot capture */
-    if (context.mode === "compare_post" && context.compare?.a && context.compare?.b) {
-      // e.g., "learn more about Professional Plus" or just "learn Professional Plus"
-      const learnSel =
-        text.match(/learn(?:\s+more)?\s+about\s+(.+)/i)?.[1] ??
-        text.match(/^learn(?:\s+more)?\s+(.+)/i)?.[1];
-
-      if (learnSel) {
-        const picked =
-          pickCardFromText(learnSel) ||
-          [context.compare.a, context.compare.b].map(n => cards.find(c => c.name === n)).find(Boolean);
-
-        if (picked) {
-          context = { mode: "learn_one_shot", selectedCard: picked.name };
-          return NextResponse.json({
-            reply:
-              `Great — **${picked.name}**.\n` +
-              `Please reply with your **age**, **employment type** (salaried, self-employed, student, retired), and **monthly income (USD)**.\n\n` +
-              `Example: "Age 30, salaried, $8,000"`,
-            slots,
-            done: false,
-            context,
-            actions: [], // no extra buttons at this prompt
-          });
-        }
-      }
-    }
-
-    /* 6) ONE-SHOT ELIGIBILITY for the selected card (age + employment + income in one turn) */
-    if (context.mode === "learn_one_shot" && context.selectedCard) {
-      let s = { ...slots };
-
-      // Parse all three from a single user reply
-      const ageInline = (() => {
-        const m = message.match(/\bage\s*:?\.?\s*(\d{1,2})\b/i) || message.match(/\b(\d{1,2})\s*(years|yrs|yo)\b/i) || message.match(/\b(\d{1,2})\b/);
-        return m ? Number(m[1]) : undefined;
-      })();
-      const empInline = normalizeEmployment(message);
-      const incInline = parseIncomeFromText(message);
-
-      if (typeof ageInline === "number") s.age = ageInline;
-      if (empInline) s.employment = empInline;
-      if (typeof incInline === "number") s.income = incInline;
-
-      // If still missing, ask for the missing piece (keep it simple: one question at a time)
-      const missing = nextMissingSlot(s);
-      if (missing) {
-        return NextResponse.json({
-          reply: askFor(missing),
-          slots: s,
-          done: false,
-          context, // still in learn_one_shot
-        });
-      }
-
-      // All present → score the selected card
-      const selected = cards.find((c) => c.name === context.selectedCard)!;
-      const { score, reasons, failures } = scoreCard(selected as any, s as any);
-
-      if (failures.length === 0 && score >= 3) {
-        return NextResponse.json({
-          reply: `✅ You’re eligible for **${selected.name}**. Apply now?`,
-          slots: s,
-          done: false,
-          context, // keep context until user applies or leaves
-          actions: ["apply"],
-        });
-      } else {
-        // Offer student card or agent if not eligible
-        const studentCard = cards.find(c => /student/i.test(c.name));
-        const learnAlt =
-          selected.name.toLowerCase().includes("student")
-            ? "" // already on student; no alt student button
-            : studentCard
-            ? ` [Learn about ${studentCard.name}]`
-            : "";
-
-        const agentLine = ` [Talk to Agent]`;
-        const body =
-          `❌ You’re not eligible for **${selected.name}**.\n\n` +
-          (failures.length ? failures.join("\n") : "") +
-          (reasons.length ? `\n\n${reasons.join("\n")}` : "");
-
-        return NextResponse.json({
-          reply: `${body}\n\nWould you like to explore an alternative or talk to an agent?${learnAlt}${agentLine}`,
-          slots: s,
-          done: false,
-          context,
-          actions: [
-            ...(learnAlt ? ["learn_student"] as const : []),
-            "agent",
-          ],
-        });
-      }
-    }
-
-    /* 7) AGENT handoff (simple) */
-    if (/\btalk to agent\b|\bagent\b/.test(text)) {
-      return NextResponse.json({
-        reply: "Connecting you to an agent. Please call our toll-free number: **1-800-555-1234**.",
-        slots,
-        done: true,
-        context: {},
-        actions: [],
-      });
-    }
-
-    /* 8) LEARN MORE (original flow still supported) */
+    /* 4) LEARN MORE: prompt to choose a card (single or two) */
     if (/learn more/.test(text)) {
-      context = { mode: "learn" };
+      context = { mode: "learn", selectedCard: undefined, learnOptions: undefined };
       return NextResponse.json({
         reply: "Which card would you like to learn more about? Reply with the number (1, 2, 3) or the name.",
         slots,
@@ -467,142 +300,174 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (context.mode === "learn" || /(details|about)\b/.test(text) || /^[1-3]$/.test(text)) {
-      if (!context.selectedCard) {
-        const selected = pickCardFromText(message);
-        if (selected) {
-          context.selectedCard = selected.name;
-
-          const details =
-            `${selected.name} — ${(selected.benefits || []).join(", ")}\n` +
-            `Min income: $${selected.minIncome}\n` +
-            `Age: ${selected.eligibleAges.join("-")}\n` +
-            `Employment: ${selected.employmentTypes.join(", ")}`;
-
-          const tip =
-            "💡 Tip: You can also ask:\n" +
-            `• \"Compare with Student Essentials\"\n` +
-            `• \"Am I eligible with $8,000 income and age 30?\"\n` +
-            `• \"Apply now\"`;
-
-          return NextResponse.json({
-            reply: `${details}\n\nWhat would you like to do next?`,
-            slots,
-            done: false,
-            context, // keep learn mode + selectedCard
-            actions: ["apply", "compare", "check_eligibility"],
-            tip,
-          });
-        }
+    /* 5) LEARN MORE: user picks two at once e.g., "1, 2" → show two Learn buttons only */
+    if (context.mode === "learn" && /[,]/.test(text)) {
+      const tokens = text.split(/[,]/).map((s: string) => s.trim()).filter(Boolean);
+      const picks = tokens.slice(0, 2).map(pickCardFromText).filter(Boolean) as typeof cards;
+      if (picks.length === 2) {
+        const [A, B] = picks;
+        const reply =
+          `You picked two cards:\n\n` +
+          `**${A.name}** — ${(A.benefits || []).join(", ")}\n` +
+          `**${B.name}** — ${(B.benefits || []).join(", ")}`;
+        return NextResponse.json({
+          reply,
+          slots,
+          done: false,
+          context: { mode: "learn", learnOptions: { a: A.name, b: B.name } },
+          actions: ["learn_A", "learn_B"],
+        });
       }
     }
 
-    /* 9) LEARN MORE: "Am I eligible ..." (legacy per-card eligibility) */
-    if (context.mode === "learn" && context.selectedCard && /eligible/.test(text)) {
-      const selected = cards.find((c) => c.name === context.selectedCard);
+    /* 6) Handle the two Learn buttons after compare or two-pick selection */
+    if (/^learn[_\s]?a$/i.test(text) || /^learn more about a$/i.test(text)) {
+      const name = context.learnOptions?.a;
+      const picked = name ? cards.find(c => c.name === name) : undefined;
+      if (picked) {
+        context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
+        return NextResponse.json({
+          reply:
+            `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Let’s check your eligibility.\n` + askFor("age", picked),
+          slots,
+          done: false,
+          context,
+          actions: [], // step-by-step questions, no extra buttons
+        });
+      }
+    }
+    if (/^learn[_\s]?b$/i.test(text) || /^learn more about b$/i.test(text)) {
+      const name = context.learnOptions?.b;
+      const picked = name ? cards.find(c => c.name === name) : undefined;
+      if (picked) {
+        context = { mode: "learn", selectedCard: picked.name, learnOptions: undefined };
+        return NextResponse.json({
+          reply:
+            `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Let’s check your eligibility.\n` + askFor("age", picked),
+          slots,
+          done: false,
+          context,
+          actions: [],
+        });
+      }
+    }
+
+    /* 7) LEARN MORE: single selection (number or name) → start hinted step-by-step */
+    if (context.mode === "learn" && !context.selectedCard) {
+      const selected = pickCardFromText(message);
       if (selected) {
-        const incomeInline = parseIncomeFromText(message);
-        const ageInline = (() => {
-          const m = message.match(/\b(\d{1,2})\b/);
-          return m ? Number(m[1]) : undefined;
-        })();
-
-        let s = { ...slots };
-        if (typeof incomeInline === "number") s.income = incomeInline;
-        if (typeof ageInline === "number") s.age = ageInline;
-
-        const missing = nextMissingSlot(s);
-        if (missing) {
-          return NextResponse.json({
-            reply: askFor(missing),
-            slots: s,
-            done: false,
-            context, // keep learn mode + selectedCard
-          });
-        }
-
-        const { score, reasons, failures } = scoreCard(selected as any, s as any);
-        let r: string;
-        if (failures.length === 0 && score >= 3) {
-          r = `✅ You are eligible for the ${selected.name}!\n${reasons.length ? reasons.join("\n") : ""}`;
-        } else {
-          r =
-            `❌ You are not eligible for the ${selected.name}.\n\n` +
-            (failures.length ? failures.join("\n") : "") +
-            (reasons.length ? `\n\n${reasons.join("\n")}` : "");
-        }
+        context = { mode: "learn", selectedCard: selected.name, learnOptions: undefined };
         return NextResponse.json({
-          reply: `${r}\n\nWould you like to apply, compare with another card, or get a recommendation?`,
-          slots: s,
+          reply:
+            `**${selected.name}** — ${(selected.benefits || []).join(", ")}\n` +
+            `Min income: $${selected.minIncome} · Age: ${selected.eligibleAges.join("-")} · Employment: ${selected.employmentTypes.join(", ")}\n\n` +
+            `Let’s check your eligibility.\n` + askFor("age", selected),
+          slots,
           done: false,
           context,
-          actions: ["apply", "compare", "recommend"],
+          actions: [],
         });
       }
     }
 
-    /* 10) LEARN MORE: capture employment mid-eligibility (legacy) */
-    if (context.mode === "learn" && context.selectedCard && !slots.employment) {
-      const emp = normalizeEmployment(message);
-      if (emp) {
-        const s = { ...slots, employment: emp };
-        const missing = nextMissingSlot(s);
-        if (missing) {
-          return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
-        }
-        const selected = cards.find((c) => c.name === context.selectedCard)!;
-        const { score, reasons, failures } = scoreCard(selected as any, s as any);
-        let r: string;
-        if (failures.length === 0 && score >= 3) {
-          r = `✅ You are eligible for the ${selected.name}!\n${reasons.length ? reasons.join("\n") : ""}`;
-        } else {
-          r =
-            `❌ You are not eligible for the ${selected.name}.\n\n` +
-            (failures.length ? failures.join("\n") : "") +
-            (reasons.length ? `\n\n${reasons.join("\n")}` : "");
-        }
-        return NextResponse.json({
-          reply: `${r}\n\nWould you like to apply, compare with another card, or get a recommendation?`,
-          slots: s,
-          done: false,
-          context,
-          actions: ["apply", "compare", "recommend"],
-        });
-      }
-    }
+    /* 8) LEARN MORE: step-by-step slot filling with hints, then immediate eligibility */
+    if (context.mode === "learn" && context.selectedCard) {
+      const selected = cards.find(c => c.name === context.selectedCard)!;
 
-    /* 11) Quick intents */
-    if (/apply now|apply|continue/.test(text)) {
-      return NextResponse.json({
-        reply: "Great! You can start your application in the app. Want me to pre-check eligibility first?",
-        slots,
-        done: false,
-        context,
-      });
-    }
+      // incorporate any inline info from this turn (age/employment/income)
+      let s = updateSlotsFromMessage(slots, message);
 
-    if (/check.*eligible|^eligible$/.test(text)) {
-      const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
       if (missing) {
-        return NextResponse.json({ reply: askFor(missing), slots: s, done: false, context });
+        return NextResponse.json({
+          reply: askFor(missing, selected),
+          slots: s,
+          done: false,
+          context,
+          actions: [],
+        });
       }
-      // Use aggregator for general recommendation across all cards
-      const engine = runEngine({
-        income: Number(s.income),
-        age: Number(s.age),
-        employment: String(s.employment),
-        preference: s.preference ?? null,
-        hasCosigner: s.hasCosigner === true,
-      } as any);
+
+      // All present → score THIS card now
+      const { score, reasons, failures } = scoreCard(selected as any, s as any);
+
+      if (failures.length === 0 && score >= 3) {
+        return NextResponse.json({
+          reply: `✅ You’re eligible for the **${selected.name}**.\nWould you like to apply?`,
+          slots: s,
+          done: false,
+          context: {}, // clear mode after decision
+          actions: ["apply"], // single Apply button
+        });
+      }
+
+      // Not eligible → offer learn-other (smart default) or talk to agent
+      // Prefer other card if there was a previous two-card context; else suggest Student Essentials
+      const otherName =
+        context.learnOptions?.a && context.learnOptions?.a !== selected.name
+          ? context.learnOptions.a
+          : context.learnOptions?.b && context.learnOptions?.b !== selected.name
+          ? context.learnOptions.b
+          : "Student Essentials Card";
+
+      const AGENT_PHONE = process.env.AGENT_PHONE || "1-800-XXXX-XXXX";
       return NextResponse.json({
-        reply: renderEngineReply(engine),
+        reply:
+          `❌ You are not eligible for the **${selected.name}**.\n\n` +
+          (failures.length ? failures.join("\n") : "") +
+          `\n\nWould you like to learn about the **${otherName}** or talk to an agent?`,
         slots: s,
-        done: true,
-        context,
+        done: false,
+        context: {}, // clear mode
+        actions: ["learn_other", "talk_agent"],
+        tip: `📞 Please call us at ${AGENT_PHONE}.`,
       });
     }
 
+    /* 9) Apply / Learn other / Talk to Agent */
+    if (text === "apply" || /apply now|apply|continue/.test(text)) {
+      return NextResponse.json({
+        reply: "Great! You can start your application in the app/portal.",
+        slots,
+        done: true,
+        context: {},
+      });
+    }
+
+    if (text === "learn_other") {
+      const name =
+        context.learnOptions?.a || context.learnOptions?.b || "Student Essentials Card";
+      const picked = cards.find(c => c.name === name) ||
+        cards.find(c => /student essentials/i.test(c.name));
+      if (picked) {
+        return NextResponse.json({
+          reply:
+            `**${picked.name}** — ${(picked.benefits || []).join(", ")}\n` +
+            `Min income: $${picked.minIncome} · Age: ${picked.eligibleAges.join("-")} · Employment: ${picked.employmentTypes.join(", ")}\n\n` +
+            `Let’s check your eligibility.\n` + askFor("age", picked),
+          slots,
+          done: false,
+          context: { mode: "learn", selectedCard: picked.name, learnOptions: undefined },
+          actions: [],
+        });
+      }
+    }
+
+    if (text === "talk_agent" || /talk to agent|agent/i.test(text)) {
+      const AGENT_PHONE = process.env.AGENT_PHONE || "1-800-XXXX-XXXX";
+      return NextResponse.json({
+        reply: `Please call us at **${AGENT_PHONE}**.`,
+        slots,
+        done: true,
+        context: {},
+      });
+    }
+
+    /* 10) Recommend flow (kept intact; not the MVP focus but still works) */
     if (text.includes("recommend")) {
       const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
@@ -616,17 +481,18 @@ export async function POST(req: NextRequest) {
         preference: s.preference ?? null,
         hasCosigner: s.hasCosigner === true,
       } as any);
+      // Keep your existing engine rendering on client side; here we just return message
       return NextResponse.json({
-        reply: renderEngineReply(engine),
+        reply: engine?.message || "Here are your recommendations.",
         slots: s,
         done: true,
-        context,
+        context: {},
       });
     }
 
-    /* 12) Fallback */
+    /* 11) Fallback */
     return NextResponse.json({
-      reply: "I’m here to help with cards. Use the buttons: Recommend, Learn More, or Compare.",
+      reply: "I’m here to help with cards. Use the buttons: Recommend a card for me, Learn more, or Compare with another card.",
       slots,
       done: false,
       context,
