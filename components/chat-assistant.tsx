@@ -197,3 +197,4 @@ export function ChatAssistant({ language, userContext }: Props) {
     </div>
   );
 }
+
