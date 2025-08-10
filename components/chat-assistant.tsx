@@ -1,11 +1,10 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import { ChatSlots } from "@/lib/utils/askAI";
 
 type Props = {
-  language: string; // kept for compatibility with your Page
+  language: string;
   userContext: {
     income: number | null;
     age: number | null;
@@ -42,7 +41,7 @@ export function ChatAssistant({ language, userContext }: Props) {
     const mainLines: string[] = [];
     const hints: string[] = [];
     for (const line of text.split("\n")) {
-      if (/^\s*hint\s*:/i.test(line)) hints.push(line.trim()); // keep the word "Hint:"
+      if (/^\s*hint\s*:/i.test(line)) hints.push(line.trim()); // keep "Hint:"
       else mainLines.push(line);
     }
     return { main: mainLines.join("\n"), hints };
@@ -69,7 +68,7 @@ export function ChatAssistant({ language, userContext }: Props) {
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
 
-      // Always keep buttons visible: fallback to intro set if server sends none
+      // Always keep buttons visible: fallback if server sends none
       const nextActions = Array.isArray(data.actions) ? data.actions : [];
       setActions(nextActions.length ? nextActions : ["recommend", "learn", "compare"]);
 
@@ -152,13 +151,13 @@ export function ChatAssistant({ language, userContext }: Props) {
         {messages.map((m, i) => {
           const { main, hints } = splitHints(m.text);
           const isUser = m.from === "user";
-          return (
+        return (
             <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
               <div
                 className={`rounded-lg px-3 py-2 max-w-xs ${
                   isUser
                     ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-800 whitespace-pre-wrap" // preserve line breaks
+                    : "bg-gray-100 text-gray-800 whitespace-pre-wrap"
                 }`}
               >
                 {main}
@@ -206,6 +205,3 @@ export function ChatAssistant({ language, userContext }: Props) {
     </div>
   );
 }
-```
-
-If anything still feels off after redeploy, tell me the exact message sequence you try and I’ll adjust both client and route in one shot.
