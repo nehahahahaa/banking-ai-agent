@@ -64,8 +64,8 @@ export function ChatAssistant({ language, userContext }: Props) {
       const data = await res.json();
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
-      setActions(Array.isArray(data.actions) ? data.actions : []);
-      setMeta(data.meta ?? {});
+      if (data.actions) setActions(data.actions);
+      if (data.meta) setMeta(data.meta);
       if (data.context) setContext(data.context);
       setFirstTurn(false);
     } catch (err) {
