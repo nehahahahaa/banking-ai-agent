@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChatSlots } from "@/lib/utils/askAI";
 
 type Props = {
@@ -14,9 +14,12 @@ type Props = {
 };
 
 export function ChatAssistant({ language, userContext }: Props) {
-  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string; tip?: string }[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string; tip?: string }[]>(
+    []
+  );
   const [input, setInput] = useState("");
-  const [, setFirstTwoCards] = useState<string[]>([]); // fixed unused var
   const [slots, setSlots] = useState<ChatSlots>({
     income: userContext?.income && userContext.income > 0 ? userContext.income : null,
     age: userContext?.age && userContext.age > 0 ? userContext.age : null,
@@ -24,77 +27,69 @@ export function ChatAssistant({ language, userContext }: Props) {
     preference: userContext?.preference ?? null,
     hasCosigner: null,
   });
+
+  const [firstTurn, setFirstTurn] = useState(true);
+  const [context, setContext] = useState<any>({});
   const [actions, setActions] = useState<string[]>([]);
   const [meta, setMeta] = useState<any>({});
+  const [loading, setLoading] = useState(false);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const bootstrappedRef = useRef(false);
 
   const splitHints = (text: string) => {
     const mainLines: string[] = [];
     const hints: string[] = [];
     for (const line of text.split("\n")) {
-      if (/^\s*hint\s*:/i.test(line)) {
-        hints.push(line.trim()); // keep "Hint: …"
-      } else {
-        mainLines.push(line);
-      }
+      if (/^\s*hint\s*:/i.test(line)) hints.push(line.trim());
+      else mainLines.push(line);
     }
     return { main: mainLines.join("\n"), hints };
   };
 
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async (msg: string) => {
+  const sendMessage = async (msg: string, silent = false) => {
     if (!msg.trim()) return;
-    setMessages((prev) => [...prev, { from: "user", text: msg }]);
+    if (!silent) setMessages((prev) => [...prev, { from: "user", text: msg }]);
     setInput("");
+    setLoading(true);
     try {
-      const res = await fetch("/api/route", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, slots }),
+        body: JSON.stringify({ message: msg, slots, firstTurn, context }),
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
-      if (data.actions) setActions(data.actions);
-      if (data.meta) setMeta(data.meta);
+      setActions(Array.isArray(data.actions) ? data.actions : []);
+      setMeta(data.meta ?? {});
+      if (data.context) setContext(data.context);
+      setFirstTurn(false);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleActionClick = (action: string) => {
-    if (action === "learn_other" && meta?.otherCardName) {
-      sendMessage(`Learn about ${meta.otherCardName}`);
-    } else if (action === "learn_A" && meta?.cardAName) {
-      sendMessage(`Learn about ${meta.cardAName}`);
-    } else if (action === "learn_B" && meta?.cardBName) {
-      sendMessage(`Learn about ${meta.cardBName}`);
-    } else if (action === "compare") {
-      sendMessage("compare");
-    } else if (action === "recommend") {
-      sendMessage("recommend a card for me");
-    } else {
-      sendMessage(action);
-    }
-  };
+  const handleActionClick = (action: string) => sendMessage(action);
 
-  const renderButtons = () => {
-    return actions.map((a, idx) => {
-      let label = "";
-      if (a === "recommend") label = "Recommend a Card";
-      else if (a === "learn_A") label = `Learn about ${meta?.cardAName || "Card A"}`;
-      else if (a === "learn_B") label = `Learn about ${meta?.cardBName || "Card B"}`;
-      else if (a === "learn_other") label = `Learn about ${meta?.otherCardName || "another card"}`;
+  const renderButtons = () =>
+    actions.map((a, idx) => {
+      let label = a;
+      if (a === "recommend") label = "Recommend a card for me";
+      else if (a === "learn_A") label = `Learn more about ${meta?.learnA || "Card A"}`;
+      else if (a === "learn_B") label = `Learn more about ${meta?.learnB || "Card B"}`;
+      else if (a === "learn_other")
+        label = `Learn more about ${meta?.otherCardName || "another card"}`;
       else if (a === "compare") label = "Compare Cards";
-      else if (a === "apply") label = "Apply Now";
-      else if (a === "talk_agent") label = "Talk to an Agent";
+      else if (a === "apply") label = "Apply";
+      else if (a === "talk_agent") label = "Talk to Agent";
+
       return (
         <button
           key={idx}
@@ -105,21 +100,49 @@ export function ChatAssistant({ language, userContext }: Props) {
         </button>
       );
     });
-  };
+
+  // Auto-intro once when panel opens (silent user msg)
+  useEffect(() => {
+    if (isOpen && firstTurn && messages.length === 0 && !bootstrappedRef.current) {
+      bootstrappedRef.current = true;
+      sendMessage("start", true); // silent=true, no user bubble
+    }
+  }, [isOpen, firstTurn, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isOpen) {
+    return (
+      <button
+        className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-12 h-12 shadow-lg flex items-center justify-center text-xl"
+        onClick={() => setIsOpen(true)}
+        aria-label="Open chat"
+        title="Open chat"
+      >
+        💬
+      </button>
+    );
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-[460px] h-[72vh] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
+      {/* Header */}
       <div className="p-3 border-b flex items-center justify-between">
         <div className="font-semibold">Banking Assistant</div>
+        <button
+          className="px-2 py-1 rounded hover:bg-gray-100"
+          onClick={() => setIsOpen(false)}
+          aria-label="Close chat"
+          title="Close chat"
+        >
+          ×
+        </button>
       </div>
+
+      {/* Messages */}
       <div className="p-4 flex-1 overflow-y-auto space-y-3">
         {messages.map((m, i) => {
           const { main, hints } = splitHints(m.text);
           return (
-            <div
-              key={i}
-              className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}
-            >
+            <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
               <div
                 className={`rounded-lg px-3 py-2 max-w-xs ${
                   m.from === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
@@ -142,8 +165,11 @@ export function ChatAssistant({ language, userContext }: Props) {
             </div>
           );
         })}
+        {loading && <div className="text-sm text-gray-500">Bot is typing…</div>}
         <div ref={chatEndRef} />
       </div>
+
+      {/* Actions + Composer */}
       <div className="p-3 border-t flex flex-col space-y-2">
         <div className="flex space-x-2 flex-wrap">{renderButtons()}</div>
         <div className="flex">
@@ -154,14 +180,17 @@ export function ChatAssistant({ language, userContext }: Props) {
             className="flex-1 border rounded-l px-3 py-2 text-sm"
             placeholder="Type your message..."
             onKeyDown={(e) => {
-              if (e.key === "Enter") sendMessage(input);
+              if (e.key === "Enter" && !loading) sendMessage(input);
             }}
           />
           <button
             onClick={() => sendMessage(input)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-r text-sm"
+            disabled={loading}
+            className={`px-4 py-2 rounded-r text-sm text-white ${
+              loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
+            }`}
           >
-            Send
+            {loading ? "..." : "Send"}
           </button>
         </div>
       </div>
