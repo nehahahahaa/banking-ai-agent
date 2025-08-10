@@ -23,9 +23,14 @@ export function ChatAssistant({ language, userContext }: Props) {
     preference: userContext?.preference ?? null,
     hasCosigner: null,
   });
+  const [context, setContext] = useState<any>({}); // persist compare/learn mode between turns
   const [isFirstTurn, setIsFirstTurn] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]); // parsed from intro
+
+  // parsed from the numbered intro reply (e.g., "1. Card — perks")
+  const [firstTwoCards, setFirstTwoCards] = useState<string[]>([]);
+  // actions from API: ["recommend", "learn", "compare"]
+  const [actions, setActions] = useState<string[]>([]);
 
   const firstBotIndex = useMemo(
     () => messages.findIndex((m) => m.from === "bot"),
@@ -44,19 +49,29 @@ export function ChatAssistant({ language, userContext }: Props) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageToSend, slots, firstTurn: isFirstTurn }),
+        body: JSON.stringify({
+          message: messageToSend,
+          slots,
+          firstTurn: isFirstTurn,
+          context, // 🔁 keep intent alive (e.g., compare mode)
+        }),
       });
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Extract first two card names from the intro reply (lines like: "Card — perks")
+      // Extract first two card names from the numbered intro (lines like: "1. Card — perks")
       if (isFirstTurn && data.reply) {
-        const matches = [...data.reply.matchAll(/^(.+?) —/gm)].map((m) => m[1]);
+        const matches = [...String(data.reply).matchAll(/^\s*\d+\.\s(.+?)\s—/gm)].map((m) => m[1]);
         if (matches.length >= 2) setFirstTwoCards(matches.slice(0, 2));
       }
 
+      // Save actions for showing the 3 quick buttons
+      setActions(Array.isArray(data.actions) ? data.actions : []);
+
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       setSlots(data.slots || {});
+      setContext(data.context || {});
       setIsFirstTurn(false);
     } catch (err) {
       console.error("Chat error:", err);
@@ -69,11 +84,19 @@ export function ChatAssistant({ language, userContext }: Props) {
     }
   };
 
-  const handleQuickAction = (type: "learn" | "compare") => {
-    if (type === "learn") {
+  const handleQuickAction = (type: "recommend" | "learn" | "compare") => {
+    if (type === "recommend") {
+      sendMessage("recommend a card for me");
+    } else if (type === "learn") {
       sendMessage("learn more");
-    } else if (type === "compare" && firstTwoCards.length === 2) {
-      sendMessage(`compare ${firstTwoCards[0]} vs ${firstTwoCards[1]}`);
+    } else if (type === "compare") {
+      // build a compare query from the first two intro cards (agent-driven)
+      if (firstTwoCards.length >= 2) {
+        sendMessage(`compare ${firstTwoCards[0]} vs ${firstTwoCards[1]}`);
+      } else {
+        // fallback if parsing failed—still agent-driven, just nudge user
+        sendMessage("compare 1 vs 2");
+      }
     }
   };
 
@@ -89,23 +112,35 @@ export function ChatAssistant({ language, userContext }: Props) {
           >
             {m.text}
 
-            {/* Quick actions on the very first bot message */}
+            {/* Quick actions on the very first bot message, only when API returns actions */}
             {m.from === "bot" &&
-              firstTwoCards.length === 2 &&
-              idx === firstBotIndex && (
-                <div className="mt-2 flex gap-2">
-                  <button
-                    className="px-3 py-1 text-sm bg-green-200 rounded"
-                    onClick={() => handleQuickAction("learn")}
-                  >
-                    Learn More
-                  </button>
-                  <button
-                    className="px-3 py-1 text-sm bg-yellow-200 rounded"
-                    onClick={() => handleQuickAction("compare")}
-                  >
-                    Compare Cards
-                  </button>
+              idx === firstBotIndex &&
+              actions.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {actions.includes("recommend") && (
+                    <button
+                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+                      onClick={() => handleQuickAction("recommend")}
+                    >
+                      Recommend a card for me
+                    </button>
+                  )}
+                  {actions.includes("learn") && (
+                    <button
+                      className="px-3 py-1 text-sm bg-green-200 rounded"
+                      onClick={() => handleQuickAction("learn")}
+                    >
+                      Learn More
+                    </button>
+                  )}
+                  {actions.includes("compare") && (
+                    <button
+                      className="px-3 py-1 text-sm bg-yellow-200 rounded"
+                      onClick={() => handleQuickAction("compare")}
+                    >
+                      Compare Cards
+                    </button>
+                  )}
                 </div>
               )}
           </div>
