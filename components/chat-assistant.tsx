@@ -49,23 +49,29 @@ export function ChatAssistant({ language, userContext }: Props) {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   const sendMessage = async (msg: string, silent = false) => {
-    if (!msg.trim()) return;
-    if (!silent) setMessages((prev) => [...prev, { from: "user", text: msg }]);
+    const trimmed = msg.trim();
+    if (!trimmed) return;
+    if (!silent) setMessages((prev) => [...prev, { from: "user", text: trimmed }]);
     setInput("");
     setLoading(true);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, slots, firstTurn, context }),
+        body: JSON.stringify({ message: trimmed, slots, firstTurn, context }),
       });
       const data = await res.json();
+
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
-      setActions(Array.isArray(data.actions) ? data.actions : []);
+
+      // 🔁 Always keep buttons visible (fallback if server sends none)
+      const nextActions = Array.isArray(data.actions) ? data.actions : [];
+      setActions(nextActions.length ? nextActions : ["recommend", "learn", "compare"]);
+
       setMeta(data.meta ?? {});
       if (data.context) setContext(data.context);
       setFirstTurn(false);
@@ -82,6 +88,7 @@ export function ChatAssistant({ language, userContext }: Props) {
     actions.map((a, idx) => {
       let label = a;
       if (a === "recommend") label = "Recommend a card for me";
+      else if (a === "learn") label = "Learn More";
       else if (a === "learn_A") label = `Learn more about ${meta?.learnA || "Card A"}`;
       else if (a === "learn_B") label = `Learn more about ${meta?.learnB || "Card B"}`;
       else if (a === "learn_other")
@@ -95,6 +102,7 @@ export function ChatAssistant({ language, userContext }: Props) {
           key={idx}
           className="px-3 py-2 bg-blue-100 rounded hover:bg-blue-200 text-sm"
           onClick={() => handleActionClick(a)}
+          disabled={loading}
         >
           {label}
         </button>
@@ -107,7 +115,8 @@ export function ChatAssistant({ language, userContext }: Props) {
       bootstrappedRef.current = true;
       sendMessage("start", true); // silent=true, no user bubble
     }
-  }, [isOpen, firstTurn, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, firstTurn, messages.length]);
 
   if (!isOpen) {
     return (
@@ -141,11 +150,14 @@ export function ChatAssistant({ language, userContext }: Props) {
       <div className="p-4 flex-1 overflow-y-auto space-y-3">
         {messages.map((m, i) => {
           const { main, hints } = splitHints(m.text);
+          const isUser = m.from === "user";
           return (
-            <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
               <div
                 className={`rounded-lg px-3 py-2 max-w-xs ${
-                  m.from === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
+                  isUser
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-800 whitespace-pre-wrap"
                 }`}
               >
                 {main}
@@ -179,22 +191,17 @@ export function ChatAssistant({ language, userContext }: Props) {
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 border rounded-l px-3 py-2 text-sm"
             placeholder="Type your message..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !loading) sendMessage(input);
-            }}
+            onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage(input)} {/* ⛔ block while loading */}
           />
           <button
             onClick={() => sendMessage(input)}
+            className="bg-blue-500 text-white px-4 py-2 rounded-r text-sm"
             disabled={loading}
-            className={`px-4 py-2 rounded-r text-sm text-white ${
-              loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
-            }`}
           >
-            {loading ? "..." : "Send"}
+            Send
           </button>
         </div>
       </div>
     </div>
   );
 }
-
