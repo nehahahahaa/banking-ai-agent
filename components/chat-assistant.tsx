@@ -1,6 +1,4 @@
-You’re right—sorry for the back-and-forth. Here’s the **complete, final `components/chat-assistant.tsx`** with *all* the fixes baked in (silent auto-intro, newline preservation, loading guard, actions fallback, proper button labels, no stray JSX comments, no unused state). Paste-and-go:
 
-```tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
