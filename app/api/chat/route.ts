@@ -18,7 +18,7 @@ type Ctx = {
 
 // ---------------- Helpers ----------------
 
-// 1) Remove “self-employed” everywhere (aliases pruned)
+// Remove “self-employed” everywhere (aliases pruned)
 const EMPLOYMENT_ALIASES: Record<string, string> = {
   salaried: "salaried",
   "full time": "salaried",
@@ -104,7 +104,7 @@ function nextMissingSlot(
   return null;
 }
 
-// 1) Update askFor (employment branch filters out self-employed)
+// askFor (employment branch filters out self-employed)
 function askFor(
   slot: keyof Slots,
   card?: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }
@@ -185,7 +185,7 @@ function pickCardFromText(text: string) {
   );
 }
 
-// 1) Replace formatEmploymentList to filter out “self-employed”
+// formatEmploymentList filters out “self-employed”
 function formatEmploymentList(list: string[] = []) {
   return list.filter((t) => t.toLowerCase() !== "self-employed").join(", ");
 }
@@ -218,7 +218,7 @@ function inferRecommendedCardName(engine: any, message: string): string | null {
   return null;
 }
 
-// NEW: build clear failure reasons even if scoreCard didn't return them
+// build clear failure reasons even if scoreCard didn't return them
 function computeFailuresFallback(
   card: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] },
   s: Slots,
@@ -505,7 +505,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 2) NOT ELIGIBLE → show reasons + let user pick another card (no Student default)
+      // NOT ELIGIBLE → show reasons + let user pick another card (no Student default)
       const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
 
       return NextResponse.json({
@@ -515,8 +515,8 @@ export async function POST(req: NextRequest) {
           `\n\nWould you like to learn about another card? Reply with the number (1, 2, 3) or the card name:\n${list}`,
         slots: s,
         done: false,
-        context: { mode: "learn", selectedCard: undefined }, // no hard-coded “other” card
-        actions: ["learn", "talk_agent"],                      // no learn_other
+        context: { mode: "learn", selectedCard: undefined },
+        actions: ["learn", "talk_agent"],
         meta: {},
       });
     }
@@ -562,10 +562,30 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const reply = String(engine?.message || "Here are your recommendations.");
+      // ---- NOT ELIGIBLE -> append concrete reasons before we reply (DROP-IN PATCH) ----
+      let replyText = String(engine?.message || "Here are your recommendations.");
+
+      // Try to infer which card the engine is talking about
+      let targetCard =
+        cards.find((c) => c.name === inferRecommendedCardName(engine, replyText)) || null;
+
+      // If we can't infer, pick the best-scoring card for this user
+      if (!targetCard) {
+        const ranked = cards
+          .map((c) => ({ c, r: scoreCard(c as any, s as any) }))
+          .sort((a, b) => (b.r?.score ?? 0) - (a.r?.score ?? 0));
+        targetCard = ranked[0]?.c || null;
+      }
+
+      // Append fallback failure reasons
+      if (targetCard) {
+        const res2 = scoreCard(targetCard as any, s as any);
+        const fails = computeFailuresFallback(targetCard, s, res2);
+        if (fails.length) replyText += `\n` + fails.join("\n");
+      }
 
       return NextResponse.json({
-        reply: `${reply}\n\nWould you like to learn about another card or talk to an agent?`,
+        reply: `${replyText}\n\nWould you like to learn about another card or talk to an agent?`,
         slots: s,
         done: false,
         context: { mode: "recommend" },
