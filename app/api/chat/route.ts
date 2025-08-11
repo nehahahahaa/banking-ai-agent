@@ -14,6 +14,7 @@ type Ctx = {
   mode?: "learn" | "recommend";
   selectedCard?: string;
   learnOptions?: { a?: string; b?: string };
+  avoidCard?: string;            // NEW
 };
 
 // ---------------- Helpers ----------------
@@ -340,8 +341,7 @@ export async function POST(req: NextRequest) {
         slots: s,
         done: false,
         context: { mode: "learn", learnOptions: { a: cardA.name, b: cardB.name } },
-        actions: ["learn_A", "learn_B"],
-        meta: { learnA: cardA.name, learnB: cardB.name },
+        actions: [`Learn more about ${cardA.name}`, `Learn more about ${cardB.name}`], // UPDATED labels
       });
     }
 
@@ -379,8 +379,7 @@ export async function POST(req: NextRequest) {
         slots,
         done: false,
         context: { mode: "learn", learnOptions: { a: A.name, b: B.name } },
-        actions: ["learn_A", "learn_B"],
-        meta: { learnA: A.name, learnB: B.name },
+        actions: [`Learn more about ${A.name}`, `Learn more about ${B.name}`], // UPDATED labels
       });
     }
 
@@ -409,7 +408,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // learn_A / learn_B explicit buttons — reset capture, ask INCOME first
+    // learn_A / learn_B explicit buttons — reset capture, ask INCOME first (fallback support)
     if (context.mode === "learn" && (text === "learn_a" || text === "learn_b")) {
       const nm = text === "learn_a" ? context.learnOptions?.a : context.learnOptions?.b;
       const picked = cards.find((c) => c.name === nm) || cards[0];
@@ -558,6 +557,29 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // If we were asked to recommend again, avoid the last failing card and try an eligible alternative first
+      if (context.avoidCard) {
+        const ranked = cards
+          .filter((c) => c.name !== context.avoidCard) // exclude last failing card
+          .map((c) => ({ c, r: scoreCard(c as any, s as any) }))
+          .sort((a, b) => (b.r?.score ?? 0) - (a.r?.score ?? 0));
+
+        // Prefer the first card with no failures
+        const candidate = ranked.find(({ c, r }) => computeFailuresFallback(c, s, r).length === 0);
+
+        if (candidate) {
+          const chosen = candidate.c;
+          return NextResponse.json({
+            reply: `Based on your inputs, you may be eligible for the **${chosen.name}**.\n\nHint: Click the Apply button below.`,
+            slots: s,
+            done: false,
+            context: {},                 // clear the avoid flag on success
+            actions: ["apply"],
+          });
+        }
+        // else: fall through to engine for messaging with reasons
+      }
+
       const engine: any = runEngine({
         income: Number(s.income),
         age: Number(s.age),
@@ -594,12 +616,11 @@ export async function POST(req: NextRequest) {
         cards.find((c) => c.name === inferRecommendedCardName(engine, replyText)) || null;
 
       // If we can't infer, pick the best-scoring card for this user
-      if (!targetCard) {
-        const ranked = cards
-          .map((c) => ({ c, r: scoreCard(c as any, s as any) }))
-          .sort((a, b) => (b.r?.score ?? 0) - (a.r?.score ?? 0));
-        targetCard = ranked[0]?.c || null;
-      }
+      const ranked = cards
+        .map((c) => ({ c, r: scoreCard(c as any, s as any) }))
+        .sort((a, b) => (b.r?.score ?? 0) - (a.r?.score ?? 0));
+
+      if (!targetCard) targetCard = ranked[0]?.c || null;
 
       // Append fallback failure reasons (e.g., student needs cosigner)
       if (targetCard) {
@@ -608,12 +629,13 @@ export async function POST(req: NextRequest) {
         if (fails.length) replyText += `\n` + fails.join("\n");
       }
 
+      // 👉 If user clicks "Recommend" again, avoid recommending the same failing card
       return NextResponse.json({
         reply: `${replyText}\n\nWould you like me to recommend another card or talk to an agent?`,
         slots: s,
         done: false,
-        context: { mode: "recommend" },
-        actions: ["recommend", "talk_agent"], // <- show the right CTAs
+        context: { mode: "recommend", avoidCard: targetCard?.name || undefined }, // NEW
+        actions: ["recommend", "talk_agent"], // right CTAs
       });
     }
 
