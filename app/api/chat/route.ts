@@ -521,8 +521,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ----- APPLY (move above RECOMMEND) -----
+    if (text === "apply") {
+      return NextResponse.json({
+        reply: "Great! You can start your application in the app/portal.",
+        slots,
+        done: true,
+        context: {},
+        actions: [],
+      });
+    }
+
+    // ----- TALK TO AGENT (move above RECOMMEND) -----
+    if (text === "talk_agent" || /talk to agent|agent/i.test(text)) {
+      const AGENT_PHONE = process.env.AGENT_PHONE || "1-800-XXXX-XXXX";
+      return NextResponse.json({
+        reply: `Please call us at **${AGENT_PHONE}**.`,
+        slots,
+        done: true,
+        context: {},
+        actions: [],
+      });
+    }
+
     // ----- RECOMMEND FLOW (with CTAs) -----
-    if (text.includes("recommend") || context.mode === "recommend") {
+    if (/^\s*recommend(ed)?\b/i.test(text) || (context.mode === "recommend" && text !== "talk_agent" && text !== "apply")) {
       const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
       if (missing) {
@@ -591,29 +614,6 @@ export async function POST(req: NextRequest) {
         done: false,
         context: { mode: "recommend" },
         actions: ["recommend", "talk_agent"], // <- show the right CTAs
-      });
-    }
-
-    // ----- APPLY -----
-    if (text === "apply") {
-      return NextResponse.json({
-        reply: "Great! You can start your application in the app/portal.",
-        slots,
-        done: true,
-        context: {},
-        actions: [],
-      });
-    }
-
-    // ----- TALK TO AGENT -----
-    if (text === "talk_agent" || /talk to agent|agent/i.test(text)) {
-      const AGENT_PHONE = process.env.AGENT_PHONE || "1-800-XXXX-XXXX";
-      return NextResponse.json({
-        reply: `Please call us at **${AGENT_PHONE}**.`,
-        slots,
-        done: true,
-        context: {},
-        actions: [],
       });
     }
 
