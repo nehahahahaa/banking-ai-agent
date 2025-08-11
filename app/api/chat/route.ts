@@ -18,6 +18,7 @@ type Ctx = {
 
 // ---------------- Helpers ----------------
 
+// 1) Remove “self-employed” everywhere (aliases pruned)
 const EMPLOYMENT_ALIASES: Record<string, string> = {
   salaried: "salaried",
   "full time": "salaried",
@@ -29,11 +30,6 @@ const EMPLOYMENT_ALIASES: Record<string, string> = {
   college: "student",
   retired: "retired",
   pension: "retired",
-  self: "self-employed",
-  "self employed": "self-employed",
-  "self-employed": "self-employed",
-  freelance: "self-employed",
-  contractor: "self-employed",
 };
 
 function normalizeEmployment(text: string): string | null {
@@ -108,6 +104,7 @@ function nextMissingSlot(
   return null;
 }
 
+// 1) Update askFor (employment branch filters out self-employed)
 function askFor(
   slot: keyof Slots,
   card?: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }
@@ -121,12 +118,12 @@ function askFor(
     return `What is your age?${hint}`;
   }
   if (slot === "employment") {
-    const list = card?.employmentTypes?.join(", ") || "salaried, student, retired";
+    const list = (card?.employmentTypes || ["salaried", "student", "retired"])
+      .filter((t) => t.toLowerCase() !== "self-employed")
+      .join(", ");
     return `What is your employment type? (${list})`;
   }
-  if (slot === "hasCosigner") {
-    return "Do you have a qualified cosigner? (yes/no)";
-  }
+  if (slot === "hasCosigner") return "Do you have a qualified cosigner? (yes/no)";
   return "Tell me your preference (e.g., travel, cashback).";
 }
 
@@ -188,8 +185,9 @@ function pickCardFromText(text: string) {
   );
 }
 
+// 1) Replace formatEmploymentList to filter out “self-employed”
 function formatEmploymentList(list: string[] = []) {
-  return list.join(", ");
+  return list.filter((t) => t.toLowerCase() !== "self-employed").join(", ");
 }
 
 function formatIntro() {
@@ -201,6 +199,23 @@ function formatIntro() {
     "I can help you find the right card. Here are your options:",
     ...lines,
   ].join("\n");
+}
+
+// Try to infer a card name from engine output or fields
+function inferRecommendedCardName(engine: any, message: string): string | null {
+  const direct =
+    engine?.bestCard?.name ||
+    engine?.bestCard ||
+    engine?.card ||
+    engine?.cardName ||
+    null;
+  if (typeof direct === "string" && direct.trim()) return direct;
+
+  const lower = (message || "").toLowerCase();
+  for (const c of cards) {
+    if (lower.includes(c.name.toLowerCase())) return c.name;
+  }
+  return null;
 }
 
 // NEW: build clear failure reasons even if scoreCard didn't return them
@@ -369,7 +384,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ---------- PATCH #1: Learn selection by number/name (single) ----------
+    // Learn selection by number or name (single) — reset capture, ask INCOME first
     const picked = pickCardFromText(message);
     if (picked && context.mode === "learn" && !context.selectedCard) {
       const resetSlots: Slots = {
@@ -386,7 +401,7 @@ export async function POST(req: NextRequest) {
           `Age: ${picked.eligibleAges.join("-")}\n` +
           `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
           `Let’s check your eligibility.\n` +
-          askFor("income", picked), // income first
+          askFor("income", picked),
         slots: resetSlots,
         done: false,
         context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
@@ -394,10 +409,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ---------- PATCH #2: learn_A / learn_B explicit buttons ----------
+    // learn_A / learn_B explicit buttons — reset capture, ask INCOME first
     if (context.mode === "learn" && (text === "learn_a" || text === "learn_b")) {
-      const nm =
-        text === "learn_a" ? context.learnOptions?.a : context.learnOptions?.b;
+      const nm = text === "learn_a" ? context.learnOptions?.a : context.learnOptions?.b;
       const picked = cards.find((c) => c.name === nm) || cards[0];
 
       const resetSlots: Slots = {
@@ -415,7 +429,7 @@ export async function POST(req: NextRequest) {
           `Age: ${picked.eligibleAges.join("-")}\n` +
           `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
           `Let’s check your eligibility.\n` +
-          askFor("income", picked), // income first
+          askFor("income", picked),
         slots: resetSlots,
         done: false,
         context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
@@ -423,7 +437,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ---------- PATCH #3: learn_other clears cosigner too ----------
+    // learn_other — reset capture (including cosigner), ask INCOME first
     if (text === "learn_other") {
       const otherName =
         (context.learnOptions &&
@@ -491,22 +505,19 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const otherName =
-        (context.learnOptions &&
-          [context.learnOptions.a, context.learnOptions.b].find(
-            (nm) => nm && nm !== selected.name
-          )) || "Student Essentials Card";
+      // 2) NOT ELIGIBLE → show reasons + let user pick another card (no Student default)
+      const list = cards.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}`).join("\n");
 
       return NextResponse.json({
         reply:
           `❌ You are not eligible for the **${selected.name}**.\n` +
           failures.join("\n") +
-          `\n\nWould you like to learn about the **${otherName}** or talk to an agent?`,
+          `\n\nWould you like to learn about another card? Reply with the number (1, 2, 3) or the card name:\n${list}`,
         slots: s,
         done: false,
-        context: { mode: "learn", selectedCard: undefined, learnOptions: { a: otherName, b: otherName } },
-        actions: ["learn_other", "talk_agent"],
-        meta: { otherCardName: otherName },
+        context: { mode: "learn", selectedCard: undefined }, // no hard-coded “other” card
+        actions: ["learn", "talk_agent"],                      // no learn_other
+        meta: {},
       });
     }
 
@@ -524,7 +535,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const engine = runEngine({
+      const engine: any = runEngine({
         income: Number(s.income),
         age: Number(s.age),
         employment: String(s.employment),
@@ -533,29 +544,33 @@ export async function POST(req: NextRequest) {
       } as any);
 
       const eligible =
-        (engine as any)?.eligible === true ||
-        (engine as any)?.anyEligible === true ||
-        /eligible/i.test(String((engine as any)?.message || ""));
+        engine?.eligible === true ||
+        engine?.anyEligible === true ||
+        /eligible/i.test(String(engine?.message || ""));
 
-      const reply = String((engine as any)?.message || "Here are your recommendations.");
-
+      // Eligible branch with consistent hint chip + apply action
       if (eligible) {
         return NextResponse.json({
-          reply: `${reply}\n\nWould you like to apply?`,
+          reply: `${String(engine?.message || "You're eligible.").replace(
+            /\s*Would you like to apply\?\s*$/i,
+            ""
+          )}\n\nHint: Click the Apply button below.`,
           slots: s,
           done: false,
           context: {},
           actions: ["apply"],
         });
-      } else {
-        return NextResponse.json({
-          reply: `${reply}\n\nWould you like to learn about another card or talk to an agent?`,
-          slots: s,
-          done: false,
-          context: { mode: "recommend" },
-          actions: ["learn", "talk_agent"],
-        });
       }
+
+      const reply = String(engine?.message || "Here are your recommendations.");
+
+      return NextResponse.json({
+        reply: `${reply}\n\nWould you like to learn about another card or talk to an agent?`,
+        slots: s,
+        done: false,
+        context: { mode: "recommend" },
+        actions: ["learn", "talk_agent"],
+      });
     }
 
     // ----- APPLY -----
