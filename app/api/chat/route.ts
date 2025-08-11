@@ -579,7 +579,20 @@ export async function POST(req: NextRequest) {
             actions: ["apply"],
           });
         }
-        // else: fall through to engine for messaging with reasons
+
+        // 🚫 No alternative passes → don’t repeat the same message; escalate
+        const top = ranked[0];
+        const blockers = top ? computeFailuresFallback(top.c, s, top.r).join("\n") : "";
+        return NextResponse.json({
+          reply:
+            `I checked the other cards, but none are eligible right now.\n` +
+            (blockers ? `${blockers}\n\n` : "\n") +
+            `Would you like to talk to an agent or compare cards?`,
+          slots: s,
+          done: false,
+          context: { mode: "learn" },
+          actions: ["talk_agent", "compare", "learn"],
+        });
       }
 
       const engine: any = runEngine({
@@ -617,10 +630,10 @@ export async function POST(req: NextRequest) {
       let targetCard = cards.find((c) => c.name === inferRecommendedCardName(engine, replyText)) || null;
 
       // If we can't infer, pick the best-scoring card for this user
-      const ranked = cards
+      const ranked2 = cards
         .map((c) => ({ c, r: scoreCard(c as any, s as any) }))
         .sort((a, b) => (b.r?.score ?? 0) - (a.r?.score ?? 0));
-      if (!targetCard) targetCard = ranked[0]?.c || null;
+      if (!targetCard) targetCard = ranked2[0]?.c || null;
 
       // Append fallback failure reasons (e.g., student needs cosigner)
       if (targetCard) {
