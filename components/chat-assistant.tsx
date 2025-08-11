@@ -68,9 +68,8 @@ export function ChatAssistant({ language, userContext }: Props) {
       setMessages((prev) => [...prev, { from: "bot", text: data.reply }]);
       if (data.slots) setSlots(data.slots);
 
-      // Always keep buttons visible: fallback if server sends none
-      const nextActions = Array.isArray(data.actions) ? data.actions : [];
-      setActions(nextActions.length ? nextActions : ["recommend", "learn", "compare"]);
+      // Keep server intent: if actions is [], leave it [] (no default buttons)
+      setActions(Array.isArray(data.actions) ? data.actions : ["recommend", "learn", "compare"]);
 
       setMeta(data.meta ?? {});
       if (data.context) setContext(data.context);
@@ -100,7 +99,7 @@ export function ChatAssistant({ language, userContext }: Props) {
       return (
         <button
           key={idx}
-          className="px-3 py-2 bg-blue-100 rounded hover:bg-blue-200 text-sm"
+          className="min-w-0 whitespace-normal break-words text-sm sm:text-[15px] px-3 py-2 rounded-xl border shadow-sm bg-blue-100 hover:bg-blue-200"
           onClick={() => handleActionClick(a)}
           disabled={loading}
         >
@@ -132,7 +131,7 @@ export function ChatAssistant({ language, userContext }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[460px] h-[72vh] max-w-[calc(100vw-2rem)] flex flex-col border rounded-2xl shadow-2xl bg-white">
+    <div className="fixed bottom-6 right-6 z-50 w-[min(100vw-16px,420px)] max-w-full h-[72vh] flex flex-col border rounded-2xl shadow-2xl bg-white">
       {/* Header */}
       <div className="p-3 border-b flex items-center justify-between">
         <div className="font-semibold">Banking Assistant</div>
@@ -151,7 +150,7 @@ export function ChatAssistant({ language, userContext }: Props) {
         {messages.map((m, i) => {
           const { main, hints } = splitHints(m.text);
           const isUser = m.from === "user";
-        return (
+          return (
             <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
               <div
                 className={`rounded-lg px-3 py-2 max-w-xs ${
@@ -183,7 +182,11 @@ export function ChatAssistant({ language, userContext }: Props) {
 
       {/* Actions + Composer */}
       <div className="p-3 border-t flex flex-col space-y-2">
-        <div className="flex space-x-2 flex-wrap">{renderButtons()}</div>
+        {/* Responsive, wrapping actions grid */}
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] sm:[grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+          {renderButtons()}
+        </div>
+
         <div className="flex">
           <input
             type="text"
