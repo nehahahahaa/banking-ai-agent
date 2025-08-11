@@ -129,18 +129,26 @@ function askFor(
   return "Tell me your preference (e.g., travel, cashback).";
 }
 
+// ---- UPDATED: do not parse age from the same message that set income unless there's an explicit age cue
 function updateSlotsFromMessage(slots: Slots, message: string): Slots {
   const t = message.toLowerCase();
   const s: Slots = { ...slots };
 
+  // Track if this message set income
+  let justSetIncome = false;
+
   // Income first
   if (s.income == null) {
     const income = parseIncomeFromText(t);
-    if (income != null) s.income = income;
+    if (income != null) {
+      s.income = income;
+      justSetIncome = true;
+    }
   }
 
-  // Age (<=120)
-  if (s.age == null) {
+  // Age (<=120) — don't read age from the same message that set income,
+  // unless there is an explicit age cue.
+  if (s.age == null && (!justSetIncome || /\bage\b|\byears?\b/.test(t))) {
     const n = extractNumber(t);
     if (n != null && n >= 0 && n <= 120) s.age = n;
   }
