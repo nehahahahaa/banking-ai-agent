@@ -543,18 +543,19 @@ export async function POST(req: NextRequest) {
         hasCosigner: s.hasCosigner === true,
       } as any);
 
+      // tighten eligibility detection (avoid "to become eligible" / "not eligible")
+      const msg = String(engine?.message || "");
       const eligible =
         engine?.eligible === true ||
         engine?.anyEligible === true ||
-        /eligible/i.test(String(engine?.message || ""));
+        (/\beligible\b/i.test(msg) &&
+          !/\bnot\s+eligible\b/i.test(msg) &&
+          !/\bbecome\s+eligible\b/i.test(msg) &&
+          !/\bineligible\b/i.test(msg));
 
-      // Eligible branch with consistent hint chip + apply action
       if (eligible) {
         return NextResponse.json({
-          reply: `${String(engine?.message || "You're eligible.").replace(
-            /\s*Would you like to apply\?\s*$/i,
-            ""
-          )}\n\nHint: Click the Apply button below.`,
+          reply: `${msg.replace(/\s*Would you like to apply\?\s*$/i, "")}\n\nHint: Click the Apply button below.`,
           slots: s,
           done: false,
           context: {},
@@ -562,8 +563,8 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // ---- NOT ELIGIBLE -> append concrete reasons before we reply (DROP-IN PATCH) ----
-      let replyText = String(engine?.message || "Here are your recommendations.");
+      // ---- NOT ELIGIBLE -> append concrete reasons before we reply ----
+      let replyText = msg || "Here are your recommendations.";
 
       // Try to infer which card the engine is talking about
       let targetCard =
@@ -577,7 +578,7 @@ export async function POST(req: NextRequest) {
         targetCard = ranked[0]?.c || null;
       }
 
-      // Append fallback failure reasons
+      // Append fallback failure reasons (e.g., student needs cosigner)
       if (targetCard) {
         const res2 = scoreCard(targetCard as any, s as any);
         const fails = computeFailuresFallback(targetCard, s, res2);
@@ -585,11 +586,11 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({
-        reply: `${replyText}\n\nWould you like to learn about another card or talk to an agent?`,
+        reply: `${replyText}\n\nWould you like me to recommend another card or talk to an agent?`,
         slots: s,
         done: false,
         context: { mode: "recommend" },
-        actions: ["learn", "talk_agent"],
+        actions: ["recommend", "talk_agent"], // <- show the right CTAs
       });
     }
 
