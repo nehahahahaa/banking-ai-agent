@@ -16,7 +16,7 @@ type Ctx = {
   learnOptions?: { a?: string; b?: string };
 };
 
-// ---------- Helpers ----------
+// ---------------- Helpers ----------------
 
 const EMPLOYMENT_ALIASES: Record<string, string> = {
   salaried: "salaried",
@@ -49,7 +49,7 @@ function extractNumber(n: string): number | null {
   return m ? Number(m[0]) : null;
 }
 
-// UPDATED: accept bare numbers (>=100) as income
+// Accepts k/m suffixes, money cues, and bare numbers (>=100) as income
 function parseIncomeFromText(t: string): number | null {
   const text = t.toLowerCase().replace(/[,]/g, "").trim();
 
@@ -65,7 +65,7 @@ function parseIncomeFromText(t: string): number | null {
   const money = text.match(/\$?\s*(\d+(?:\.\d+)?)\s*(usd)?\b/);
   if (money && hasCue) return Number(money[1]);
 
-  // NEW: if it's only a number, treat as income when reasonably sized
+  // Bare number fallback for income (avoid ages like 18/22)
   const bare = text.match(/^\d+(?:\.\d+)?$/);
   if (bare) {
     const val = Number(bare[0]);
@@ -85,7 +85,7 @@ function detectPreference(text: string): string | null {
   return null;
 }
 
-// UPDATED: capture order income → age → employment → cosigner
+// capture order for LEARN/RECOMMEND: income → age → employment → cosigner (if needed)
 function nextMissingSlot(
   slots: Slots,
   _selected?: { minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] }
@@ -93,6 +93,7 @@ function nextMissingSlot(
   if (slots.income == null) return "income";
   if (slots.age == null) return "age";
   if (slots.employment == null || slots.employment === "") return "employment";
+
   if (
     slots.employment === "student" &&
     typeof slots.age === "number" &&
@@ -133,7 +134,7 @@ function updateSlotsFromMessage(slots: Slots, message: string): Slots {
   const t = message.toLowerCase();
   const s: Slots = { ...slots };
 
-  // Income first (more permissive)
+  // Income first
   if (s.income == null) {
     const income = parseIncomeFromText(t);
     if (income != null) s.income = income;
@@ -202,7 +203,41 @@ function formatIntro() {
   ].join("\n");
 }
 
-// ---------- Route ----------
+// NEW: build clear failure reasons even if scoreCard didn't return them
+function computeFailuresFallback(
+  card: { name: string; minIncome: number; eligibleAges: [number, number]; employmentTypes: string[] },
+  s: Slots,
+  res: { failures?: string[] }
+): string[] {
+  const out = new Set<string>();
+  (res.failures || []).forEach((f) => out.add(f));
+
+  if (typeof s.income === "number" && s.income < card.minIncome) {
+    out.add("✗ Income below minimum requirement");
+  }
+
+  const [minA, maxA] = card.eligibleAges || [0, 999];
+  if (typeof s.age === "number" && !(s.age >= minA && s.age <= maxA)) {
+    out.add("✗ Age not within eligible range");
+  }
+
+  if (s.employment && !card.employmentTypes.includes(String(s.employment))) {
+    out.add("✗ Employment type not eligible");
+  }
+
+  if (
+    s.employment === "student" &&
+    typeof s.age === "number" && s.age >= 18 && s.age <= 25 &&
+    typeof s.income === "number" && s.income > 5000 &&
+    s.hasCosigner !== true
+  ) {
+    out.add("✗ For student income above $5,000, a cosigner is required to be eligible.");
+  }
+
+  return Array.from(out);
+}
+
+// ---------------- Route ----------------
 
 export async function POST(req: NextRequest) {
   try {
@@ -213,7 +248,7 @@ export async function POST(req: NextRequest) {
     const incomingContext: Ctx = body?.context ?? {};
     const text = (message || "").toLowerCase();
 
-    // sanitize zeros/empties
+    // normalize incoming "zeros"/empties to null-ish
     const slots: Slots = {
       income: incomingSlots?.income ?? null,
       age: incomingSlots?.age ?? null,
@@ -234,7 +269,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ---- Compare prompt (bare) ----
+    // Bare compare → prompt
     if (/^compare$/.test(text.trim())) {
       const list = cards
         .slice(0, 3)
@@ -248,7 +283,7 @@ export async function POST(req: NextRequest) {
         slots,
         done: false,
         context: { mode: "learn" },
-        actions: ["recommend", "learn"], // keep buttons visible
+        actions: ["recommend", "learn"],
       });
     }
 
@@ -303,11 +338,11 @@ export async function POST(req: NextRequest) {
         slots,
         done: false,
         context: { mode: "learn" },
-        actions: ["recommend", "learn"], // keep actions visible
+        actions: ["recommend", "learn"],
       });
     }
 
-    // Learn two picks in one: "1, 2"
+    // Two-pick learn: "1, 2"
     const twoPick = text.match(/^\s*([1-3])\s*,\s*([1-3])\s*$/);
     if (twoPick) {
       const A = cards[Number(twoPick[1]) - 1];
@@ -334,9 +369,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Learn selection by number or name (single)
+    // ---------- PATCH #1: Learn selection by number/name (single) ----------
     const picked = pickCardFromText(message);
     if (picked && context.mode === "learn" && !context.selectedCard) {
+      const resetSlots: Slots = {
+        ...slots,
+        income: null,
+        age: null,
+        employment: null,
+        hasCosigner: null,
+      };
       return NextResponse.json({
         reply:
           `**${picked.name}** — ${(picked.benefits || []).join(", ") || "Standard benefits"}\n` +
@@ -344,51 +386,7 @@ export async function POST(req: NextRequest) {
           `Age: ${picked.eligibleAges.join("-")}\n` +
           `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
           `Let’s check your eligibility.\n` +
-          askFor("income", picked), // UPDATED: income first
-        slots,
-        done: false,
-        context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
-        actions: [],
-      });
-    }
-
-    // learn_A / learn_B explicit buttons
-    if (context.mode === "learn" && (text === "learn_a" || text === "learn_b")) {
-      const nm =
-        text === "learn_a" ? context.learnOptions?.a : context.learnOptions?.b;
-      const picked = cards.find((c) => c.name === nm) || cards[0];
-      return NextResponse.json({
-        reply:
-          `**${picked.name}** — ${(picked.benefits || []).join(", ") || "Standard benefits"}\n` +
-          `Min income: $${picked.minIncome}\n` +
-          `Age: ${picked.eligibleAges.join("-")}\n` +
-          `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
-          `Let’s check your eligibility.\n` +
-          askFor("income", picked), // UPDATED: income first
-        slots,
-        done: false,
-        context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
-        actions: [],
-      });
-    }
-
-    // learn_other → reset capture and start again with other card
-    if (text === "learn_other") {
-      const otherName =
-        (context.learnOptions &&
-          [context.learnOptions.a, context.learnOptions.b].find(
-            (nm) => nm && nm !== context.selectedCard
-          )) || "Student Essentials Card";
-      const picked = cards.find((c) => c.name === otherName) || cards[1] || cards[0];
-      const resetSlots = { ...slots, age: null, employment: null, income: null };
-      return NextResponse.json({
-        reply:
-          `**${picked.name}** — ${(picked.benefits || []).join(", ") || "Standard benefits"}\n` +
-          `Min income: $${picked.minIncome}\n` +
-          `Age: ${picked.eligibleAges.join("-")}\n` +
-          `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
-          `Let’s check your eligibility.\n` +
-          askFor("income", picked), // UPDATED: income first
+          askFor("income", picked), // income first
         slots: resetSlots,
         done: false,
         context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
@@ -396,7 +394,66 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ----- LEARN STEP: ask income → age → employment → cosigner; score only after all three -----
+    // ---------- PATCH #2: learn_A / learn_B explicit buttons ----------
+    if (context.mode === "learn" && (text === "learn_a" || text === "learn_b")) {
+      const nm =
+        text === "learn_a" ? context.learnOptions?.a : context.learnOptions?.b;
+      const picked = cards.find((c) => c.name === nm) || cards[0];
+
+      const resetSlots: Slots = {
+        ...slots,
+        income: null,
+        age: null,
+        employment: null,
+        hasCosigner: null,
+      };
+
+      return NextResponse.json({
+        reply:
+          `**${picked.name}** — ${(picked.benefits || []).join(", ") || "Standard benefits"}\n` +
+          `Min income: $${picked.minIncome}\n` +
+          `Age: ${picked.eligibleAges.join("-")}\n` +
+          `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
+          `Let’s check your eligibility.\n` +
+          askFor("income", picked), // income first
+        slots: resetSlots,
+        done: false,
+        context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
+        actions: [],
+      });
+    }
+
+    // ---------- PATCH #3: learn_other clears cosigner too ----------
+    if (text === "learn_other") {
+      const otherName =
+        (context.learnOptions &&
+          [context.learnOptions.a, context.learnOptions.b].find(
+            (nm) => nm && nm !== context.selectedCard
+          )) || "Student Essentials Card";
+      const picked = cards.find((c) => c.name === otherName) || cards[1] || cards[0];
+      const resetSlots: Slots = {
+        ...slots,
+        income: null,
+        age: null,
+        employment: null,
+        hasCosigner: null,
+      };
+      return NextResponse.json({
+        reply:
+          `**${picked.name}** — ${(picked.benefits || []).join(", ") || "Standard benefits"}\n` +
+          `Min income: $${picked.minIncome}\n` +
+          `Age: ${picked.eligibleAges.join("-")}\n` +
+          `Employment: ${formatEmploymentList(picked.employmentTypes)}\n\n` +
+          `Let’s check your eligibility.\n` +
+          askFor("income", picked),
+        slots: resetSlots,
+        done: false,
+        context: { mode: "learn", selectedCard: picked.name, learnOptions: context.learnOptions },
+        actions: [],
+      });
+    }
+
+    // ----- LEARN STEP (income → age → employment → cosigner); score once after all captured
     if (context.mode === "learn" && context.selectedCard) {
       const selected =
         cards.find((c) => c.name === context.selectedCard) || cards[0];
@@ -413,7 +470,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // All captured → score ONCE here
+      // All captured → score ONCE
       const res = scoreCard(selected as any, {
         income: Number(s.income),
         age: Number(s.age),
@@ -422,7 +479,9 @@ export async function POST(req: NextRequest) {
         hasCosigner: s.hasCosigner === true,
       } as any);
 
-      if ((res.failures?.length ?? 0) === 0 && res.score >= 3) {
+      // Safety-net reasons + eligibility decision
+      const failures = computeFailuresFallback(selected, s, res);
+      if (failures.length === 0 && (typeof (res as any).score === "number" ? (res as any).score >= 3 : true)) {
         return NextResponse.json({
           reply: `✅ You’re eligible for the **${selected.name}**.\nHint: Click the Apply button below.`,
           slots: s,
@@ -432,7 +491,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const failures = res.failures?.length ? res.failures.join("\n") : "Some requirements not met.";
       const otherName =
         (context.learnOptions &&
           [context.learnOptions.a, context.learnOptions.b].find(
@@ -442,8 +500,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         reply:
           `❌ You are not eligible for the **${selected.name}**.\n` +
-          `${failures}\n\n` +
-          `Would you like to learn about the **${otherName}** or talk to an agent?`,
+          failures.join("\n") +
+          `\n\nWould you like to learn about the **${otherName}** or talk to an agent?`,
         slots: s,
         done: false,
         context: { mode: "learn", selectedCard: undefined, learnOptions: { a: otherName, b: otherName } },
@@ -452,7 +510,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ----- RECOMMEND FLOW -----
+    // ----- RECOMMEND FLOW (with CTAs) -----
     if (text.includes("recommend") || context.mode === "recommend") {
       const s = updateSlotsFromMessage(slots, message);
       const missing = nextMissingSlot(s);
@@ -525,8 +583,7 @@ export async function POST(req: NextRequest) {
 
     // Fallback
     return NextResponse.json({
-      reply:
-        "I’m here to help with cards. Try: “recommend”, “learn”, or “compare”.",
+      reply: "I’m here to help with cards. Try: “recommend”, “learn”, or “compare”.",
       slots,
       done: false,
       context,
